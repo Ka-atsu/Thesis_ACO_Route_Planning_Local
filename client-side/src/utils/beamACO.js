@@ -241,6 +241,8 @@ export function beamAcoAlgorithm(distanceMatrix, durationMatrix) {
       }
     }
 
+    bestSolutions.push({ iteration: iter, bestDistance: bestDistance, bestDuration: bestDuration });
+
     // Perform global pheromone evaporation
     for (let i = 0; i < CITY_NUM; i++) {
       for (let j = 0; j < CITY_NUM; j++) {

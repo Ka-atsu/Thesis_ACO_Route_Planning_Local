@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { MAPBOX_ACCESS_TOKEN } from '../api/config';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerPosition, highlightedIndex, sequence }) => {
   const mapContainerRef = useRef(null);
@@ -9,85 +8,95 @@ const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerP
   const markerObjectsRef = useRef([]);
 
   useEffect(() => {
-    mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN;
-
-    const initializedMap = new mapboxgl.Map({
+    const initializedMap = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [122.56, 13.41],  // Set the center to the Philippines
+      style: 'http://localhost:8080/styles/basic-preview/style.json',
+      center: [122.56, 13.41],
       zoom: 6,
-      projection: 'mercator' // force flat map view
+      projection: 'mercator'
     });
 
-    // Wait for the map style to fully load
     initializedMap.on('style.load', () => {
       setMap(initializedMap);
-      initializedMap.dragRotate.disable();         // Disable rotation by dragging
-      initializedMap.touchZoomRotate.disableRotation(); // Disable rotation by touch gestures
+      initializedMap.dragRotate.disable();
+      initializedMap.touchZoomRotate.disableRotation();
     });
 
-    return () => initializedMap.remove();  // Clean up the map on unmount
+    return () => initializedMap.remove();
   }, []);
 
   useEffect(() => {
     if (map) {
-      const handleClick = async (e) => {
+      const handleClick = (e) => {
         if (markerMode) {
           const { lng, lat } = e.lngLat;
-          // Log the lat and lng in the console
           console.log(`Latitude: ${lat}, Longitude: ${lng}`);
-          addMarker(lat, lng);  // Allow placing markers on land or water
+          addMarker(lat, lng);
         }
       };
 
       map.on('click', handleClick);
-      return () => map.off('click', handleClick);  // Clean up event listener
+      return () => map.off('click', handleClick);
     }
   }, [map, addMarker, markerMode]);
 
-  useEffect(() => {
-    if (!map) return;
-  
-    // clear old markers…
-    markerObjectsRef.current.forEach(m => m.remove());
-    markerObjectsRef.current = [];
-  
-    // draw new markers…
-    const newMarkers = markers.map(({ lat, lng }, idx) => {
-      // find this marker's 1-based ID (idx+1) in the sequence:
-      const pos = sequence.findIndex(id => id === idx+1);
-      // display a 1-based "step number" from the route, or fallback to insertion order
-      const label = pos >= 0 ? pos+1 : idx+1;
-  
-      const marker = new mapboxgl.Marker({ color: highlightedIndex===idx ? '#f00' : '#500073', draggable: true })
-        .setLngLat([lng, lat])
-        .addTo(map)
-        .on('dragend', () => {
-          const { lat: newLat, lng: newLng } = marker.getLngLat();
-          updateMarkerPosition(idx, newLat, newLng);
-        });
-  
-      const el = document.createElement('div');
-      el.className = 'marker-label';
-      Object.assign(el.style, {
-        position: 'absolute', top: '-20px', left: '-10px',
-        background: '#FF5733', color: 'white', padding: '5px',
-        borderRadius: '50%', fontWeight: 'bold', fontSize: '14px'
-      });
-      el.textContent = label;
-      marker.getElement().appendChild(el);
-  
-      return marker;
+useEffect(() => {
+  if (!map) return;
+
+  // Clear old marker instances
+  markerObjectsRef.current.forEach(marker => {
+    if (marker && typeof marker.remove === 'function') {
+      marker.remove();
+    } else {
+      console.warn('Marker object missing remove method:', marker);
+    }
+  });
+  markerObjectsRef.current = [];
+
+  // Create new marker instances
+  const newMarkers = markers.map(({ lat, lng }, idx) => {
+    const pos = sequence.findIndex(id => id === idx + 1);
+    const label = pos >= 0 ? pos + 1 : idx + 1;
+
+    const el = document.createElement('div');
+    el.className = 'marker-label';
+    Object.assign(el.style, {
+      background: highlightedIndex === idx ? '#f00' : '#500073',
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: '14px',
+      borderRadius: '50%',
+      width: '20px',
+      height: '20px',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      cursor: 'pointer'
     });
-  
-    markerObjectsRef.current = newMarkers;
-  }, [map, markers, highlightedIndex, updateMarkerPosition, sequence]);  
+    el.textContent = label;
+
+    const marker = new maplibregl.Marker({
+      element: el,
+      draggable: true
+    })
+      .setLngLat([lng, lat])
+      .addTo(map);
+
+    marker.on('dragend', () => {
+      const { lat: newLat, lng: newLng } = marker.getLngLat();
+      updateMarkerPosition(idx, newLat, newLng);
+    });
+
+    return marker;
+  });
+
+  markerObjectsRef.current = newMarkers;
+}, [map, markers, highlightedIndex, updateMarkerPosition, sequence]);
 
   useEffect(() => {
     if (map && paths) {
       const source = map.getSource('path');
-      
-      // If paths are empty, clear the data
+
       if (paths.length === 0) {
         if (source) {
           source.setData({
@@ -96,11 +105,9 @@ const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerP
           });
         }
       } else {
-        // If source exists, update the data
         if (source) {
           source.setData(paths);
         } else {
-          // If the source doesn't exist, add it
           map.addSource('path', {
             type: 'geojson',
             data: paths,
@@ -114,7 +121,7 @@ const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerP
               'line-join': 'round',
             },
             paint: {
-              'line-color': '#0000FF', 
+              'line-color': '#0000FF',
               'line-width': 4,
               'line-opacity': 0.9
             },
@@ -122,7 +129,7 @@ const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerP
         }
       }
     }
-  }, [map, paths]); 
+  }, [map, paths]);
 
   return <div ref={mapContainerRef} style={{ height: '100%' }}></div>;
 };

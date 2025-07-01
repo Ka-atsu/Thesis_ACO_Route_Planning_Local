@@ -484,12 +484,12 @@ return (
                     markerMode={markerMode}
                     paths={paths || []}
                     updateMarkerPosition={(index, newLat, newLng) => {
-                      setMarkers(prev => {
-                        const updated = [...prev];
-                        updated[index] = { lat: newLat, lng: newLng };
-                        return updated;
-                      });
-                    }}
+                    setMarkers(prev => {
+                      const updated = [...prev];
+                      updated[index] = { lat: newLat, lng: newLng };
+                      return updated;
+                    });
+                  }}
                   />
                 </div>
 
@@ -505,12 +505,12 @@ return (
                     markerMode={markerMode}
                     paths={pathsBeamAco || []}
                     updateMarkerPosition={(index, newLat, newLng) => {
-                      setMarkers(prev => {
-                        const updated = [...prev];
-                        updated[index] = { lat: newLat, lng: newLng };
-                        return updated;
-                      });
-                    }}
+                    setMarkers(prev => {
+                      const updated = [...prev];
+                      updated[index] = { lat: newLat, lng: newLng };
+                      return updated;
+                    });
+                  }}
                   />
                 </div>
               </div>
