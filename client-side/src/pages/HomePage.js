@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Navbar, Nav, Container, Button } from 'react-bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import { useNavigate } from 'react-router-dom';
 import Home from '../homeComponent/home';
 import Feature from '../homeComponent/feature';
@@ -12,20 +11,20 @@ function HomePage() {
   const [animation, setAnimation] = useState('fade-in'); 
   const navigate = useNavigate();
 
-  const navigation = (section) => {
-    setAnimation('fade-out'); // Trigger fade-out animation before changing section
+  const navigateSection = (section) => {
+    setAnimation('fade-out'); 
     setTimeout(() => {
-      setActiveSection(section); // Update active section after animation
-      setAnimation('fade-in'); // Trigger fade-in animation after the section is updated
-    }, 300); // Wait for the fade-out animation to finish before changing the section
+      setActiveSection(section); 
+      setAnimation('fade-in'); 
+    }, 300);
   };
 
-  const toSolverPage = (section) => {
-    setAnimation('fade-out'); // Trigger fade-out animation before changing section
+  const navigation = (section) => {
+    setAnimation('fade-out'); 
     setTimeout(() => {
-      navigate(section); // Update active section after animation
-      setAnimation('fade-in'); // Trigger fade-in animation after the section is updated
-    }, 300); // Wait for the fade-out animation to finish before changing the section
+      navigate(section); 
+      setAnimation('fade-in'); 
+    }, 300);
   };
 
   return (
@@ -39,7 +38,7 @@ function HomePage() {
       >
         <Container>
           <Navbar.Brand
-            onClick={() => navigation('home')} 
+            onClick={() => navigateSection('home')} 
             className="fw-bold"
             style={{ cursor: 'pointer' }}
           >
@@ -50,7 +49,7 @@ function HomePage() {
             <Nav className="ms-auto">
               <Button
                 variant="link"
-                onClick={() => navigation('feature')}
+                onClick={() => navigateSection('feature')}
                 active={activeSection === 'feature'}
                 style={{ color: 'white', textDecoration: 'none' }}
               >
@@ -58,7 +57,7 @@ function HomePage() {
               </Button>
               <Button
                 variant="link"
-                onClick={() => navigation('about')}
+                onClick={() => navigateSection('about')}
                 active={activeSection === 'about'}
                 style={{ color: 'white', textDecoration: 'none' }}
               >
@@ -66,21 +65,21 @@ function HomePage() {
               </Button>
               <Button
                 variant="link"
-                onClick={() => navigation('tutorial')}
+                onClick={() => navigateSection('tutorial')}
                 active={activeSection === 'tutorial'}
                 style={{ color: 'white', textDecoration: 'none' }}
               >
                 Tutorial
               </Button>
-              <Button variant="light" size="sm" className="ms-3" onClick={() => toSolverPage('/solve')}>
+              <Button variant="light" size="sm" className="ms-3" onClick={() => navigation('/solve')}>
                 Get Started
               </Button>
             </Nav>
           </Navbar.Collapse>
         </Container>
       </Navbar>
-
-      {/* Conditionally Render Sections with Fade-In/Out Animations */}
+      
+      {/* Main content section with fade-in/out animation */}
       <div className={`section ${animation}`}>
         {activeSection === 'home' && <Home />}
         {activeSection === 'feature' && <Feature />}
@@ -88,7 +87,6 @@ function HomePage() {
         {activeSection === 'tutorial' && <Tutorial />}
       </div>
 
-      {/* Simple Fade-In/Out Animation via CSS */}
       <style jsx>{`
         .section {
           opacity: 1;

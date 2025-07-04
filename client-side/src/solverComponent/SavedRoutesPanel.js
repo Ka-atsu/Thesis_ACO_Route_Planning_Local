@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, ListGroup, Container } from 'react-bootstrap';
 import { FaTrash } from 'react-icons/fa';
 

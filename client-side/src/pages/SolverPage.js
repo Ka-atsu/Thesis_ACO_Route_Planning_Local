@@ -11,7 +11,6 @@ import EvaluationPanel from '../solverComponent/evaluationComponent';
 import { saveRoute, loadRoute, deleteRoute } from '../functions/pinSaveManagement';
 import { calculateDistanceMatrix } from '../utils/calculateDistanceMatrix';
 import { getContinuousRoute, getContinuousRouteSplit } from '../utils/routeUtis';
-import { MAPBOX_ACCESS_TOKEN } from '../api/config';
 import { predefinedRoutes } from '../functions/predefinedRoutes';
 
 function SolverPage() {
@@ -53,27 +52,6 @@ function SolverPage() {
     handleResize(); // Initial check
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    const getLocationNames = async () => {
-      const names = [];
-      for (let index of routeSequence) {
-        const marker = markers[index - 1]; // Use the index from routeSequence to find the corresponding marker
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${marker.lng},${marker.lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}`
-        );
-        const data = await response.json();
-        // console.log("API Response:", data); // Log the response to inspect it
-        const placeName = data.features[0]?.place_name || 'Unknown Location';
-        names.push(placeName);
-      }
-      setLocationNames(names);
-    };
-  
-    if (routeSequence.length > 0 && markers.length > 0) {  // Only fetch if routeSequence is available and markers are not empty
-      getLocationNames();
-    }
-  }, [routeSequence, markers]);
 
   useEffect(() => {
     const storedMarkers = localStorage.getItem('markers');

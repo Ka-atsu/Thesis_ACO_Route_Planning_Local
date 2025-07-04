@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -42,7 +42,7 @@ const MapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerPosit
 
 useEffect(() => {
   if (!map) return;
-
+  
   // Clear old marker instances
   markerObjectsRef.current.forEach(marker => {
     if (marker && typeof marker.remove === 'function') {

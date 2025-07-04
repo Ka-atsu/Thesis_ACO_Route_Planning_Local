@@ -1,14 +1,5 @@
 import { Table, Container, Row, Col } from 'react-bootstrap';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const formatTime = (minutes) => {
   if (minutes == null) return 'N/A';
@@ -64,103 +55,96 @@ const EvaluationComponent = ({ evaluationData }) => {
   const beam = evaluationData.beam || {};
 
   return (
-        <Container style={{
-          padding: '5rem 0',
-          fontFamily: 'Segoe UI, Roboto, sans-serif',
-          maxWidth: '1500px',
-          margin: '0 auto'
-        }}>
-          {/* Top: Evaluation Summary */}
-          <Row className="mb-4">
-            <Col md={12}>
-              <div style={{
-                background: '#fff',
-                padding: '2rem',
-                borderRadius: '16px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                height: '100%',
-              }}>
-                <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Evaluation Summary</h5>
+    <Container style={{ padding: '6rem 0', maxWidth: '1080px', }}>
+      <Row className="mb-4">
+        <Col md={12}>
+          <div style={{
+            background: '#fff',
+            padding: '2rem',
+            borderRadius: '16px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            height: '100%',
+          }}>
+            <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Evaluation Summary</h5>
 
-                <Table responsive bordered hover size="sm" style={{ fontSize: '0.95rem' }}>
-                  <thead className="table-light">
-                    <tr>
-                      <th>Metric</th>
-                      <th>ACO</th>
-                      <th>Beam ACO</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Route Time</td>
-                      <td>{formatTime(aco.time)}</td>
-                      <td>{formatTime(beam.time)}</td>
-                    </tr>
-                    <tr>
-                      <td>Distance</td>
-                      <td>{formatDistance(aco.distance)}</td>
-                      <td>{formatDistance(beam.distance)}</td>
-                    </tr>
-                    <tr>
-                      <td>Memory Usage</td>
-                      <td>{formatMemory(aco.memoryUsage)}</td>
-                      <td>{formatMemory(beam.memoryUsage)}</td>
-                    </tr>
-                    <tr>
-                      <td>Computation Time</td>
-                      <td>{formatComputeTime(aco.computationTime)}</td>
-                      <td>{formatComputeTime(beam.computationTime)}</td>
-                    </tr>
-                  </tbody>
-                </Table>
+            <Table responsive bordered hover size="sm" style={{ fontSize: '0.95rem' }}>
+              <thead className="table-light">
+                <tr>
+                  <th>Metric</th>
+                  <th>ACO</th>
+                  <th>Beam ACO</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Route Time</td>
+                  <td>{formatTime(aco.time)}</td>
+                  <td>{formatTime(beam.time)}</td>
+                </tr>
+                <tr>
+                  <td>Distance</td>
+                  <td>{formatDistance(aco.distance)}</td>
+                  <td>{formatDistance(beam.distance)}</td>
+                </tr>
+                <tr>
+                  <td>Memory Usage</td>
+                  <td>{formatMemory(aco.memoryUsage)}</td>
+                  <td>{formatMemory(beam.memoryUsage)}</td>
+                </tr>
+                <tr>
+                  <td>Computation Time</td>
+                  <td>{formatComputeTime(aco.computationTime)}</td>
+                  <td>{formatComputeTime(beam.computationTime)}</td>
+                </tr>
+              </tbody>
+            </Table>
+          </div>
+        </Col>
+      </Row>
+
+      {(aco.bestPerIteration || beam.bestPerIteration) && (
+        <Row>
+          <Col md={12}>
+            <div style={{
+              background: '#fff',
+              padding: '2rem',
+              borderRadius: '16px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              height: '100%',
+            }}>
+              <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Convergence Over Iterations</h5>
+              <div style={{ height: 350 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={mergeChartData(aco.bestPerIteration, beam.bestPerIteration)}
+                    margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="iteration" />
+                    <YAxis
+                      label={{
+                        value: 'Fitness Score',
+                        angle: -90,
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle' }
+                      }}
+                    />
+                    <Tooltip />
+                    <Legend />
+                    {aco.bestPerIteration && (
+                      <Line type="monotone" dataKey="ACO" stroke="#2ca02c" strokeWidth={2} dot={false} />
+                    )}
+                    {beam.bestPerIteration && (
+                      <Line type="monotone" dataKey="BeamACO" stroke="#1f77b4" strokeWidth={2} dot={false} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-            </Col>
-          </Row>
-
-          {/* Bottom: Chart */}
-          { (aco.bestPerIteration || beam.bestPerIteration) && (
-            <Row>
-              <Col md={12}>
-                <div style={{
-                  background: '#fff',
-                  padding: '2rem',
-                  borderRadius: '16px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                  height: '100%',
-                }}>
-                  <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Convergence Over Iterations</h5>
-                  <div style={{ height: 350 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={mergeChartData(aco.bestPerIteration, beam.bestPerIteration)}
-                        margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="iteration" />
-                        <YAxis
-                          label={{
-                            value: 'Fitness Score',
-                            angle: -90,
-                            position: 'insideLeft',
-                            style: { textAnchor: 'middle' }
-                          }}
-                        />
-                        <Tooltip />
-                        <Legend />
-                        {aco.bestPerIteration && (
-                          <Line type="monotone" dataKey="ACO" stroke="#2ca02c" strokeWidth={2} dot={false} />
-                        )}
-                        {beam.bestPerIteration && (
-                          <Line type="monotone" dataKey="BeamACO" stroke="#1f77b4" strokeWidth={2} dot={false} />
-                        )}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </Col>
-            </Row>
-          )}
-        </Container>
+            </div>
+          </Col>
+        </Row>
+      )}
+    </Container>
   );
 };
 
