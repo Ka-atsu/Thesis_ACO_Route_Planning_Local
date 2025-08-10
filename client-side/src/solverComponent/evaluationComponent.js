@@ -55,16 +55,9 @@ const EvaluationComponent = ({ evaluationData }) => {
   const beam = evaluationData.beam || {};
 
   return (
-    <Container style={{ padding: '6rem 0', maxWidth: '1080px', }}>
+    <Container style={{ padding: '4rem', maxWidth: '1080px', background: '#FFFAFA' }}>
       <Row className="mb-4">
         <Col md={12}>
-          <div style={{
-            background: '#fff',
-            padding: '2rem',
-            borderRadius: '16px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            height: '100%',
-          }}>
             <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Evaluation Summary</h5>
 
             <Table responsive bordered hover size="sm" style={{ fontSize: '0.95rem' }}>
@@ -98,52 +91,59 @@ const EvaluationComponent = ({ evaluationData }) => {
                 </tr>
               </tbody>
             </Table>
-          </div>
         </Col>
       </Row>
 
-      {(aco.bestPerIteration || beam.bestPerIteration) && (
-        <Row>
-          <Col md={12}>
-            <div style={{
-              background: '#fff',
-              padding: '2rem',
-              borderRadius: '16px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              height: '100%',
-            }}>
-              <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Convergence Over Iterations</h5>
-              <div style={{ height: 350 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={mergeChartData(aco.bestPerIteration, beam.bestPerIteration)}
-                    margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="iteration" />
-                    <YAxis
-                      label={{
-                        value: 'Fitness Score',
-                        angle: -90,
-                        position: 'insideLeft',
-                        style: { textAnchor: 'middle' }
-                      }}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    {aco.bestPerIteration && (
-                      <Line type="monotone" dataKey="ACO" stroke="#2ca02c" strokeWidth={2} dot={false} />
-                    )}
+      <Row>
+        <Col md={12} style={{ height: 350 , padding: '0 1rem' }}>
+            <h5 style={{ marginBottom: '1rem', fontWeight: 500 }}>Convergence Over Iterations</h5>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={mergeChartData(aco.bestPerIteration, beam.bestPerIteration)}
+                  margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="iteration" />
+                  <YAxis
+                    label={{
+                      value: 'Fitness Score',
+                      angle: -90,
+                      position: 'insideLeft',
+                      style: { textAnchor: 'middle' }
+                    }}
+                  />
+                  <Tooltip />
+                  <Legend />
                     {beam.bestPerIteration && (
-                      <Line type="monotone" dataKey="BeamACO" stroke="#1f77b4" strokeWidth={2} dot={false} />
+                      <Line
+                        type="monotone"
+                        dataKey="BeamACO"
+                        stroke="#1f77b4"
+                        strokeWidth={2}
+                        dot={({ index, cx, cy }) =>
+                          index === aco.bestPerIteration.length - 1 ? (
+                            <circle cx={cx} cy={cy} r={5} stroke="green" strokeWidth={2} fill="#fff"/>
+                          ) : null
+                        }
+                      />
                     )}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </Col>
-        </Row>
-      )}
+                    {aco.bestPerIteration && (
+                      <Line
+                        type="monotone"
+                        dataKey="ACO"
+                        stroke="#2ca02c"
+                        strokeWidth={2}
+                        dot={({ index, cx, cy }) =>
+                          index === aco.bestPerIteration.length - 1 ? (
+                            <circle cx={cx} cy={cy} r={5} stroke="green" strokeWidth={2} fill="#fff"/>
+                          ) : null
+                        }
+                      />
+                    )}
+                </LineChart>
+              </ResponsiveContainer>
+        </Col>
+      </Row>
     </Container>
   );
 };
