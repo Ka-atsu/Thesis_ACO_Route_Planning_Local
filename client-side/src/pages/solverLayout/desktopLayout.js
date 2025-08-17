@@ -101,45 +101,49 @@ function DesktopLayout({
 
           <Col xs={12} md={10} style={{ padding: 0 }}>
             {activePanelMap === 'map' ? (
-              <div style={{ display: 'flex', width: '100%', height: '100%' }} >
-                {/* ACO result */}
-                <div style={{ flex: 1 }}>
-                  <AcoMapComponent
-                    sequence={routeSequences.aco}
-                    addMarker={(lat, lng) => {
-                      if (markerMode) setMarkers(prev => [...prev, { lat, lng }]);
-                    }}
-                    markers={markers}
-                    markerMode={markerMode}
-                    paths={routes.aco || []}
-                    updateMarkerPosition={(index, newLat, newLng) => {
-                      setMarkers(prev => {
-                        const updated = [...prev];
-                        updated[index] = { lat: newLat, lng: newLng };
-                        return updated;
-                      });
-                    }}
-                  />
+              <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' , background: '#1A1A1D'}}>
+                  <div style={{ textAlign: 'center', fontWeight: 'bold', padding: '5px' , color: '#ffffff' }}>ACO</div>
+                    <div style={{ flex: 1 }}>
+                      <AcoMapComponent
+                        sequence={routeSequences.aco}
+                        addMarker={(lat, lng) => {
+                          if (markerMode) setMarkers(prev => [...prev, { lat, lng }]);
+                        }}
+                        markers={markers}
+                        markerMode={markerMode}
+                        paths={routes.aco || []}
+                        updateMarkerPosition={(index, newLat, newLng) => {
+                          setMarkers(prev => {
+                            const updated = [...prev];
+                            updated[index] = { lat: newLat, lng: newLng };
+                            return updated;
+                          });
+                        }}
+                      />
+                    </div>
                 </div>
-
-                {/* Beam-ACO result */}
-                <div style={{ flex: 1 }}>
-                  <BeamAcoMapComponent
-                    sequence={routeSequences.beam}
-                    addMarker={(lat, lng) => {
-                      if (markerMode) setMarkers(prev => [...prev, { lat, lng }]);
-                    }}
-                    markers={markers}
-                    markerMode={markerMode}
-                    paths={routes.beam || []}
-                    updateMarkerPosition={(index, newLat, newLng) => {
-                      setMarkers(prev => {
-                        const updated = [...prev];
-                        updated[index] = { lat: newLat, lng: newLng };
-                        return updated;
-                      });
-                    }}
-                  />
+                
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' , background: '#1A1A1D'}}>
+                  <div style={{ textAlign: 'center', fontWeight: 'bold', padding: '5px' , color: '#ffffff' }}>ACO + Beam Search</div>
+                    <div style={{ flex: 1 }}>
+                      <BeamAcoMapComponent
+                        sequence={routeSequences.beam}
+                        addMarker={(lat, lng) => {
+                          if (markerMode) setMarkers(prev => [...prev, { lat, lng }]);
+                        }}
+                        markers={markers}
+                        markerMode={markerMode}
+                        paths={routes.beam || []}
+                        updateMarkerPosition={(index, newLat, newLng) => {
+                          setMarkers(prev => {
+                            const updated = [...prev];
+                            updated[index] = { lat: newLat, lng: newLng };
+                            return updated;
+                          });
+                        }}
+                      />
+                    </div>
                 </div>
               </div>
               ) : (
