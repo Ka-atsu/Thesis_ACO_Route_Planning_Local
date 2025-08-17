@@ -30,7 +30,7 @@ const updatePheromoneMatrix = (pheromoneMatrix, allPaths, allPathLengths, pherom
 };
 
 export const acoAlgorithm = (distanceMatrix, durationMatrix) => {
-  const CITY_NUM = distanceMatrix.length;
+  const CITY_NUM = distanceMatrix.length; // Number of cities
   const ANT_NUM = Math.max(10, Math.floor(CITY_NUM / 2));  // Number of ants
   const ITER = 200;  // Number of iterations
   const ALPHA = 1;  // Influence of pheromone

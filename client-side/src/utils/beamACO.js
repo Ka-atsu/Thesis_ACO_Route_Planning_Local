@@ -1,10 +1,7 @@
 const ITER = 200;
-const EXPLOITATION_THRESHOLD = 50;  // You can adjust the percentage (50%-70%) for when exploitation starts
+const EXPLOITATION_THRESHOLD = 50;
 
-const BEAM_INITIAL_FACTOR = 0.5;
-const BEAM_FINAL_FACTOR   = 0.125;
-
-const BOOST = 2.5;
+const BOOST = 2;
 
 const ALPHA = 1;
 const RHO   = 0.5;
@@ -79,10 +76,10 @@ function initializePheromoneMatrix(numCities) {
 
 // Compute beam width that shrinks from BEAM_INITIAL_FACTOR to BEAM_FINAL_FACTOR
 function getBeamWidth(iter, cityNum) {
-  const b0 = BEAM_INITIAL_FACTOR * cityNum;
-  const b1 = BEAM_FINAL_FACTOR   * cityNum;
-  const t  = Math.min(iter, EXPLOITATION_THRESHOLD) / EXPLOITATION_THRESHOLD;
-  return Math.max(2, Math.floor(b0 * (1 - t) + b1 * t));
+  let frac = Math.max(0, (iter - EXPLOITATION_THRESHOLD) / (ITER - EXPLOITATION_THRESHOLD));
+  let beamWidth = Math.round(cityNum * Math.exp(-1.5 * frac)) + 3;
+  beamWidth = Math.max(3, beamWidth);  // ensure minimum width
+  return beamWidth;
 }
 
 // Ant class with optimized beam‐search step
