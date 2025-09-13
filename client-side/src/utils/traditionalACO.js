@@ -7,6 +7,7 @@ class ACO {
     this.CITY_NUM = distanceMatrix.length;                      // number of cities
     this.ANT_NUM = Math.max(10, Math.floor(this.CITY_NUM / 2)); // number of ants
     this.ITER = 200;                                            // number of iterations
+    this.INITIAL_PHEROMONE = 0.200;                             // initial pheromone influence
     this.ALPHA = 1;                                             // pheromone influence
     this.RHO = 0.5;                                             // pheromone evaporation rate
     this.Q = 1;                                                 // pheromone deposit constant
@@ -26,7 +27,7 @@ class ACO {
   // -------------------------
   initializePheromoneMatrix(numCities) {
     return Array.from({ length: numCities }, () =>
-      new Array(numCities).fill(0.200)
+      new Array(numCities).fill(this.INITIAL_PHEROMONE)
     );
   }
 
@@ -146,12 +147,15 @@ class ACO {
     const startTime = performance.now();
 
     // create all ants for this run
-    let ants = Array.from({ length: this.ANT_NUM }, () => new this.Ant(this, this.CITY_NUM));
+    const ants = Array.from({ length: this.ANT_NUM }, () => new this.Ant(this, this.CITY_NUM));
 
-    // main iteration loop
-    for (let iter = 0; iter < this.ITER; iter++) {
-      for (let ant of ants) {
-        ant.search(); // let ant build a solution
+    // === While stopping criterion not met do ===
+    let iter = 0;
+    while (iter < this.ITER) {
+
+      // === For each ant do ===
+      for (const ant of ants) {
+        ant.search(); // build a solution
 
         // check if this ant found a new best path
         if (
@@ -172,8 +176,8 @@ class ACO {
       });
 
       // update pheromones based on ants’ paths
-      const iterationPaths = ants.map((ant) => ant.path);
-      const iterationPathLengths = ants.map((ant) => ant.totalDistance);
+      const iterationPaths = ants.map(a => a.path);
+      const iterationPathLengths = ants.map(a => a.totalDistance);
       this.pheromoneMatrix = this.updatePheromoneMatrix(
         this.pheromoneMatrix,
         iterationPaths,
@@ -181,6 +185,8 @@ class ACO {
         this.RHO,
         this.Q
       );
+
+      iter++;
     }
 
     const endTime = performance.now();

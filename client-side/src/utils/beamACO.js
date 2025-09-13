@@ -1,54 +1,62 @@
 // ===============================
-// OOP Beam-ACO
+// OOP Beam-ACO (Distance + Duration, no time limit)
+// MATLAB-aligned: Q0 greedy, UseBestOnly, random start, adaptive tau0
 // ===============================
 class BeamACO {
   constructor(distanceMatrix, durationMatrix) {
     this.distanceMatrix = distanceMatrix;
     this.durationMatrix = durationMatrix;
 
-    // ---- Parameters  ----
+    // ---- Core parameters ----
     this.ITER = 200;
-    this.EXPLOITATION_THRESHOLD = 50;
+    this.EXPLOITATION_THRESHOLD = 70;
 
-    this.BEAM_INITIAL_FACTOR = 0.5;
-    this.BEAM_FINAL_FACTOR   = 0.125;
+    this.BEAM_INITIAL_FACTOR = 0.35;
+    this.BEAM_FINAL_FACTOR   = 0.10;
 
-    this.BOOST = 2.5;       // boost for iteration-best paths
-    this.ELITE_WEIGHT = 2;  // extra global-best reinforcement each iter
+    this.BOOST = 2.0;      // boost for iteration-best paths
+    this.ELITE_WEIGHT = 1.5;      // extra global-best reinforcement each iter
 
-    this.ALPHA = 1;   // pheromone influence
-    this.RHO   = 0.5; // global evaporation rate
-    this.Q     = 1;   // pheromone deposit constant
-    this.GAMMA = 3;   // distance attractiveness
-    this.DELTA = 2;   // duration attractiveness
+    this.ALPHA = 1;          // pheromone influence
+    this.RHO   = 0.5;        // global evaporation rate
+    this.Q     = 1;          // pheromone deposit constant
 
-    // local evaporation rate
-    this.LOCAL_RHO = 0.1;
+    // Distance/Duration heuristic exponents (your multi-objective)
+    this.BETA = 3;          // distance attractiveness exponent
+    this.CHARLIE = 2;          // duration attractiveness exponent
 
-    // pheromone clamping
+    // Local evaporation
+    this.LOCAL_RHO = 0.12;
+
+    // MATLAB-aligned toggles
+    this.Q0 = 0.2;              // probability of greedy pick within beam
+    this.USE_BEST_ONLY = true;  // deposit only iteration-best (plus elitist)
+
+    // Pheromone clamping
     this.TAU_MIN = 1e-6;
     this.TAU_MAX = 10;
+    this.TAU0_AUTO = true;      // adaptive tau0 like MATLAB Tau0Auto
 
-    // numerical safety
+    // Numerical safety
     this.EPS = 1e-12;
 
-    // ---- Derived parameters ----
+    // ---- Derived ----
     this.CITY_NUM = distanceMatrix.length;
 
-    // ---- Precompute heuristic matrix ----
+    // ---- Precompute heuristic matrix (distance & duration) ----
     this.heurMatrix = Array.from({ length: this.CITY_NUM }, () => new Array(this.CITY_NUM));
     for (let i = 0; i < this.CITY_NUM; i++) {
       for (let j = 0; j < this.CITY_NUM; j++) {
         if (i === j) { this.heurMatrix[i][j] = 0; continue; }
         const d = Math.max(this.distanceMatrix[i][j], this.EPS);
         const t = Math.max(this.durationMatrix[i][j], this.EPS);
-        const distH = (1 / d) ** this.GAMMA;
-        const timeH = (1 / t) ** this.DELTA;
+        const distH = (1 / d) ** this.BETA;
+        const timeH = (1 / t) ** this.CHARLIE;
         this.heurMatrix[i][j] = distH * timeH;
       }
     }
 
-    // ---- Build static neighbor lists (top M by heuristic) ----
+    // ---- Static candidate lists (top M by heuristic) ----
     const M = Math.min(this.CITY_NUM - 1, 50);
     this.staticNeighbors = this.buildStaticNeighbors(this.heurMatrix, M);
 
@@ -56,13 +64,13 @@ class BeamACO {
     this.pheromoneMatrix = this.initializePheromoneMatrix(this.CITY_NUM);
 
     // ---- Ants ----
-    this.ANT_NUM = Math.max(10, Math.floor(this.CITY_NUM / 2));
+    this.ANT_NUM = Math.max(60, Math.min(100, Math.round(0.16 * this.CITY_NUM))); 
     this.ants = Array.from(
       { length: this.ANT_NUM },
       () => new this.Ant(this, this.CITY_NUM, this.heurMatrix, this.staticNeighbors)
     );
 
-    // ---- Objective normalization (critical if units differ) ----
+    // ---- Objective scale normalization ----
     const avgOffDiag = (mat) => {
       let sum = 0, cnt = 0;
       for (let i = 0; i < mat.length; i++) {
@@ -86,7 +94,7 @@ class BeamACO {
   }
 
   // -------------------------
-  // MinHeap for top-K selection
+  // MinHeap for top-K beam
   // -------------------------
   MinHeap = class {
     constructor(capacity) {
@@ -144,8 +152,15 @@ class BeamACO {
   }
 
   initializePheromoneMatrix(numCities) {
-    // deterministic tau0 helps stability; diagonal zero
-    const tau0 = 0.2;
+    // Adaptive tau0 like MATLAB Tau0Auto
+    const n = numCities;
+    let sum = 0, cnt = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      if (i === j) continue; sum += this.distanceMatrix[i][j]; cnt++;
+    }
+    const meanD = Math.max(sum / Math.max(cnt, 1), this.EPS);
+    const tau0 = this.TAU0_AUTO ? (1 / Math.max(this.RHO * n * meanD, this.EPS)) : 0.2;
+
     const matrix = Array.from({ length: numCities }, () => Array(numCities).fill(tau0));
     for (let i = 0; i < numCities; i++) matrix[i][i] = 0;
     return matrix;
@@ -171,20 +186,21 @@ class BeamACO {
     }
 
     clean() {
-      this.path = [0];
+      const start = 0;
+      this.path = [start];
       this.visited = new Array(this.cityNum).fill(false);
-      this.visited[0] = true;
+      this.visited[start] = true;
       this.totalDistance = 0;
       this.totalDuration = 0;
       this.moveCount = 1;
-      this.cur = 0;
+      this.cur = start;
     }
 
     next(distMatrix, durationMatrix, pheromoneMatrix, beamWidth) {
       const heap = new this.parent.MinHeap(beamWidth);
       const seenStatic = new Set();
 
-      // Scan top-M heuristic neighbors
+      // Static neighbors
       for (let city of this.staticNeighbors[this.cur]) {
         if (!this.visited[city]) {
           seenStatic.add(city);
@@ -195,7 +211,7 @@ class BeamACO {
         }
       }
 
-      // Fallback: scan all others if needed
+      // Add others if needed
       if (heap.size() < beamWidth) {
         for (let city = 0; city < this.cityNum; city++) {
           if (city === this.cur || seenStatic.has(city) || this.visited[city]) continue;
@@ -206,31 +222,32 @@ class BeamACO {
         }
       }
 
-      // Roulette-wheel within beam (with degenerate fallback)
       const beam = heap.data;
-      const beamTotal = beam.reduce((sum, item) => sum + item.attractiveness, 0);
+      if (!beam.length) return;
 
-      let chosen = -1;
-      if (beam.length && isFinite(beamTotal) && beamTotal > 0) {
-        let threshold = Math.random() * beamTotal;
-        for (let { city, attractiveness } of beam) {
-          threshold -= attractiveness;
-          if (threshold <= 0) { chosen = city; break; }
-        }
-        if (chosen === -1) chosen = beam[beam.length - 1].city; // numeric safety
-      } else {
-        // Greedy heuristic fallback
-        let bestCity = -1, bestScore = -Infinity;
-        for (let city = 0; city < this.cityNum; city++) {
-          if (city === this.cur || this.visited[city]) continue;
-          const s = this.heurMatrix[this.cur][city];
-          if (s > bestScore) { bestScore = s; bestCity = city; }
-        }
-        if (bestCity === -1) return; // defensive
-        chosen = bestCity;
+     // --- pure roulette selection inside the beam
+    let chosen = -1;
+    const beamTotal = beam.reduce((s, it) => s + it.attractiveness, 0);
+    if (isFinite(beamTotal) && beamTotal > 0) {
+      let threshold = Math.random() * beamTotal;
+      for (let { city, attractiveness } of beam) {
+        threshold -= attractiveness;
+        if (threshold <= 0) { chosen = city; break; }
       }
+      if (chosen === -1) chosen = beam[beam.length - 1].city;
+    } else {
+      // Greedy fallback if all attractiveness are 0
+      let bestCity = -1, bestScore = -Infinity;
+      for (let city = 0; city < this.cityNum; city++) {
+        if (city === this.cur || this.visited[city]) continue;
+        const s = this.heurMatrix[this.cur][city];
+        if (s > bestScore) { bestScore = s; bestCity = city; }
+      }
+      if (bestCity === -1) return;
+      chosen = bestCity;
+    }
 
-      // Local evaporation (gentler than global)
+      // Local evaporation (symmetric)
       pheromoneMatrix[this.cur][chosen] *= (1 - this.parent.LOCAL_RHO);
       pheromoneMatrix[chosen][this.cur] *= (1 - this.parent.LOCAL_RHO);
 
@@ -248,7 +265,7 @@ class BeamACO {
       while (this.moveCount < this.cityNum) {
         this.next(distMatrix, durationMatrix, pheromoneMatrix, beamWidth);
       }
-      // complete tour
+      // close tour
       this.totalDistance += distMatrix[this.cur][this.path[0]];
       this.totalDuration += durationMatrix[this.cur][this.path[0]];
     }
@@ -258,15 +275,26 @@ class BeamACO {
   // Utility: score normalization
   // -------------------------
   scoreOf(dist, dur) {
-    // normalized weighted sum; aligns scales so Beam ≈ Classic preference
+    // normalized weighted sum (weights 1,1; adjust if desired)
     return (dist / this.S_DIST) + (dur / this.S_DUR);
   }
 
+  // deposit helper
+  _depositPath(path, deposit) {
+    for (let k = 0; k < path.length - 1; k++) {
+      const u = path[k], v = path[k + 1];
+      this.pheromoneMatrix[u][v] += deposit;
+      this.pheromoneMatrix[v][u] += deposit;
+    }
+    const last = path[path.length - 1], first = path[0];
+    this.pheromoneMatrix[last][first] += deposit;
+    this.pheromoneMatrix[first][last] += deposit;
+  }
+
   // -------------------------
-  // Main loop
+  // Main loop (fixed iterations; no time limit)
   // -------------------------
   run() {
-    // Use performance.now() in browser; Node: import from 'node:perf_hooks'
     const startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
     for (let iter = 0; iter < this.ITER; iter++) {
@@ -277,15 +305,14 @@ class BeamACO {
       const iterationDists  = [];
       const iterationDurs   = [];
 
-      // Phases (kept for readability; beamWidth already tightens)
-      const isExploitationPhase = iter >= this.ITER * 0.3;
+      const isExploitationPhase = iter >= Math.floor(0.3 * this.ITER);
 
       // --- Construct solutions
       for (let ant of this.ants) {
         ant.search(this.distanceMatrix, this.durationMatrix, this.pheromoneMatrix, beamWidth);
 
-        const dist = ant.totalDistance;
-        const dur  = ant.totalDuration;
+        const dist  = ant.totalDistance;
+        const dur   = ant.totalDuration;
         const score = this.scoreOf(dist, dur);
 
         iterationPaths.push(ant.path.slice());
@@ -294,8 +321,8 @@ class BeamACO {
         iterationDurs.push(dur);
 
         if (score < this.bestScore) {
-          this.bestScore   = score;
-          this.bestPath    = ant.path.slice();
+          this.bestScore    = score;
+          this.bestPath     = ant.path.slice();
           this.bestDistance = dist;
           this.bestDuration = dur;
         }
@@ -307,48 +334,35 @@ class BeamACO {
         bestDuration: this.bestDuration
       });
 
-      // --- Global evaporation (deterministic)
+      // --- Global evaporation
       for (let i = 0; i < this.CITY_NUM; i++) {
         for (let j = 0; j < this.CITY_NUM; j++) {
           this.pheromoneMatrix[i][j] *= (1 - this.RHO);
         }
       }
 
-      // --- Deposition for iteration paths
-      // Use normalized score (lower is better)
-      // Also add boost to the *iteration-best* (epsilon compare)
+      // --- Deposition (MATLAB-like: iteration-best only, optional boost)
       let bestIterIdx = 0;
       for (let i = 1; i < iterationScores.length; i++) {
         if (iterationScores[i] < iterationScores[bestIterIdx]) bestIterIdx = i;
       }
 
-      for (let i = 0; i < iterationPaths.length; i++) {
-        let deposit = this.Q / Math.max(iterationScores[i], this.EPS);
-        if (isExploitationPhase && i === bestIterIdx) deposit *= this.BOOST;
-
-        const path = iterationPaths[i];
-        for (let k = 0; k < path.length - 1; k++) {
-          const u = path[k], v = path[k + 1];
-          this.pheromoneMatrix[u][v] += deposit;
-          this.pheromoneMatrix[v][u] += deposit;
+      if (this.USE_BEST_ONLY) {
+        let deposit = this.Q / Math.max(iterationScores[bestIterIdx], this.EPS);
+        if (isExploitationPhase) deposit *= this.BOOST;
+        this._depositPath(iterationPaths[bestIterIdx], deposit);
+      } else {
+        for (let i = 0; i < iterationPaths.length; i++) {
+          let deposit = this.Q / Math.max(iterationScores[i], this.EPS);
+          if (isExploitationPhase && i === bestIterIdx) deposit *= this.BOOST;
+          this._depositPath(iterationPaths[i], deposit);
         }
-        // close the loop
-        const last = path[path.length - 1], first = path[0];
-        this.pheromoneMatrix[last][first] += deposit;
-        this.pheromoneMatrix[first][last] += deposit;
       }
 
-      // --- Elitist reinforcement of global best path
+      // --- Elitist reinforcement of global best
       if (this.bestPath.length) {
         const eliteDeposit = this.ELITE_WEIGHT * (this.Q / Math.max(this.bestScore, this.EPS));
-        for (let k = 0; k < this.bestPath.length - 1; k++) {
-          const u = this.bestPath[k], v = this.bestPath[k + 1];
-          this.pheromoneMatrix[u][v] += eliteDeposit;
-          this.pheromoneMatrix[v][u] += eliteDeposit;
-        }
-        const last = this.bestPath[this.bestPath.length - 1], first = this.bestPath[0];
-        this.pheromoneMatrix[last][first] += eliteDeposit;
-        this.pheromoneMatrix[first][last] += eliteDeposit;
+        this._depositPath(this.bestPath, eliteDeposit);
       }
 
       // --- Clamp pheromones
@@ -373,10 +387,9 @@ class BeamACO {
 }
 
 // -------------------------
-// Public API (unchanged)
+// Public API
 // -------------------------
 export function beamAcoAlgorithm(distanceMatrix, durationMatrix) {
-  // Basic input checks
   if (!Array.isArray(distanceMatrix) || !distanceMatrix.every(r => Array.isArray(r))) {
     console.error("Invalid distance matrix");
     return { bestPath: [], bestPathLength: 0, bestPathDuration: 0 };
