@@ -11,103 +11,180 @@ import {
   Legend
 } from 'recharts';
 
-// ------------------------
-// Formatting data for display
-// ------------------------
+// ---- TIME (ROUTE DURATION) ----
+const toMinutes = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    const hms = s.match(/^(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+    if (hms) {
+      const h = parseInt(hms[1], 10), m = parseInt(hms[2], 10), sec = parseInt(hms[3], 10);
+      return h * 60 + m + sec / 60;
+    }
+    const sec = s.match(/^(\d+(?:\.\d+)?)\s*s$/i);
+    if (sec) return parseFloat(sec[1]) / 60;
+    const min = s.match(/^(\d+(?:\.\d+)?)\s*m$/i);
+    if (min) return parseFloat(min[1]);
+    const hm = s.match(/^(\d+(?:\.\d+)?)\s*h(?:\s*(\d+(?:\.\d+)?)\s*m)?$/i);
+    if (hm) return parseFloat(hm[1]) * 60 + (hm[2] ? parseFloat(hm[2]) : 0);
+    const n = Number.parseFloat(s);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
 const formatTime = (minutes) => {
-  if (minutes == null) return 'N/A';
-  const totalSeconds = minutes * 60;
+  if (minutes == null || !Number.isFinite(minutes)) return 'N/A';
+  const totalSeconds = Math.round(minutes * 60);
   const hrs = Math.floor(totalSeconds / 3600);
   const mins = Math.floor((totalSeconds % 3600) / 60);
   const secs = Math.floor(totalSeconds % 60);
   return `${hrs}h ${mins}m ${secs}s`;
 };
 
-const formatDistance = (km) => {
-  if (km == null) return 'N/A';
-  // keep same behavior as your original component (assumes meters input; shows km)
-  return `${(km).toFixed(2)} km`;
+// ---- DISTANCE (KM) ----
+const toKilometers = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase().replace(/,/g, '');
+    if (s.endsWith('KM')) return parseFloat(s);
+    if (s.endsWith('M')) return parseFloat(s) / 1000;
+    const n = Number.parseFloat(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 };
 
-const formatMemory = (bytes) => {
-  if (bytes == null) return 'N/A';
-  return `${(Math.abs(bytes) / 1024).toFixed(2)} KB`;
+const formatDistance = (km) => {
+  if (km == null || !Number.isFinite(km)) return 'N/A';
+  return `${km.toFixed(2)} km`;
+};
+
+// ---- MEMORY (BYTES) ----
+export const toBytes = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    return Math.round(val); // already bytes
+  }
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase().replace(/,/g, '');
+    const num = parseFloat(s);
+    if (!Number.isFinite(num)) return null;
+    return Math.round(num); // assume string also in bytes
+  }
+  return null;
+};
+
+export const formatMemory = (bytes) => {
+  if (bytes == null || !Number.isFinite(bytes)) return 'N/A';
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${bytes} B`;
+};
+
+// ---- COMPUTATION TIME (MS) ----
+const toMillis = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    return val < 60 ? Math.round(val * 1000) : Math.round(val);
+  }
+  if (typeof val === 'string') {
+    const s = val.trim().toLowerCase();
+    const ms = s.match(/^(\d+(?:\.\d+)?)\s*ms$/);
+    if (ms) return Math.round(parseFloat(ms[1]));
+    const sec = s.match(/^(\d+(?:\.\d+)?)\s*s$/);
+    if (sec) return Math.round(parseFloat(sec[1]) * 1000);
+    const n = Number.parseFloat(s);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  return null;
 };
 
 const formatComputeTime = (ms) => {
-  if (ms == null) return 'N/A';
+  if (ms == null || !Number.isFinite(ms)) return 'N/A';
   return `${(ms / 1000).toFixed(2)} s`;
 };
 
-// ------------------------
-// Prepare chart data
-// ------------------------
+// ======================
+// Chart data preparation
+// ======================
 const mergeChartData = (acoDataRaw = [], beamDataRaw = []) => {
   const maxLength = Math.max(acoDataRaw.length, beamDataRaw.length);
   const data = [];
-
   for (let i = 0; i < maxLength; i++) {
-    const acoScore = acoDataRaw[i] != null ? acoDataRaw[i].bestDistance : null;
-    const beamScore = beamDataRaw[i] != null ? beamDataRaw[i].bestDistance : null;
-
+    const acoScore = acoDataRaw[i] != null ? toKilometers(acoDataRaw[i].bestDistance) : null;
+    const beamScore = beamDataRaw[i] != null ? toKilometers(beamDataRaw[i].bestDistance) : null;
     data.push({
       iteration: i,
       ACO: acoScore != null ? parseFloat(acoScore.toFixed(2)) : null,
       BeamACO: beamScore != null ? parseFloat(beamScore.toFixed(2)) : null
     });
   }
-
   return data;
 };
 
-// ------------------------
 // Small analysis helpers
-// ------------------------
 const analyzeIterations = (arr = []) => {
-  // arr: [{ bestDistance: number }, ...]
   if (!arr || arr.length === 0) return null;
-  const distances = arr.map(x => x.bestDistance);
+  const distances = arr.map(x => toKilometers(x.bestDistance)).filter(v => v != null && Number.isFinite(v));
+  if (distances.length === 0) return null;
   const minVal = Math.min(...distances);
   const minIndex = distances.indexOf(minVal);
   const lastVal = distances[distances.length - 1];
-  // find when the algorithm first reached within 0.001 of final (practical convergence) — optional
-  return {
-    length: arr.length,
-    minVal,
-    minIndex,
-    lastVal
-  };
+  return { length: arr.length, minVal, minIndex, lastVal };
 };
 
-// ------------------------
-// Component (UI + explanations inside the app)
-// ------------------------
+// ======================
+// Component
+// ======================
 const EvaluationComponent = ({ evaluationData = {} }) => {
   const aco = evaluationData.aco || {};
   const beam = evaluationData.beam || {};
 
-  // Precompute useful stats for automated explanations
+  const acoTimeMin = useMemo(() => toMinutes(aco.time), [aco.time]);
+  const beamTimeMin = useMemo(() => toMinutes(beam.time), [beam.time]);
+
+  const acoDistKm = useMemo(() => (aco.distance != null ? toKilometers(aco.distance) : null), [aco.distance]);
+  const beamDistKm = useMemo(() => (beam.distance != null ? toKilometers(beam.distance) : null), [beam.distance]);
+
+  const acoMemBytes = useMemo(() => { const v = toBytes(aco.memoryUsage); return v == null ? v : Math.abs(v); }, [aco.memoryUsage]);
+  const beamMemBytes = useMemo(() => { const v = toBytes(beam.memoryUsage); return v == null ? v : Math.abs(v); }, [beam.memoryUsage]);
+
+  console.log(aco.memoryUsage);
+  console.log(beam.memoryUsage);
+
+  const acoCompMs = useMemo(() => toMillis(aco.computationTime), [aco.computationTime]);
+  const beamCompMs = useMemo(() => toMillis(beam.computationTime), [beam.computationTime]);
+
   const acoStats = useMemo(() => analyzeIterations(aco.bestPerIteration || []), [aco.bestPerIteration]);
   const beamStats = useMemo(() => analyzeIterations(beam.bestPerIteration || []), [beam.bestPerIteration]);
 
-  // Final best distances (prefer iteration-derived values if available)
-  const acoFinalDistance = acoStats ? acoStats.minVal : (aco.distance || null);
-  const beamFinalDistance = beamStats ? beamStats.minVal : (beam.distance || null);
+  const acoFinalDistance = acoStats ? acoStats.minVal : acoDistKm;
+  const beamFinalDistance = beamStats ? beamStats.minVal : beamDistKm;
 
-  // Determine winners per metric (lower = better for distances, time, memory, compute time)
   const winners = {
-    distance: (acoFinalDistance != null && beamFinalDistance != null) ? (acoFinalDistance < beamFinalDistance ? 'ACO' : (beamFinalDistance < acoFinalDistance ? 'Beam ACO' : 'Tie')) : 'N/A',
-    time: (aco.time != null && beam.time != null) ? (aco.time < beam.time ? 'ACO' : (beam.time < aco.time ? 'Beam ACO' : 'Tie')) : 'N/A',
-    memory: (aco.memoryUsage != null && beam.memoryUsage != null) ? (aco.memoryUsage < beam.memoryUsage ? 'ACO' : (beam.memoryUsage < aco.memoryUsage ? 'Beam ACO' : 'Tie')) : 'N/A',
-    computeTime: (aco.computationTime != null && beam.computationTime != null) ? (aco.computationTime < beam.computationTime ? 'ACO' : (beam.computationTime < aco.computationTime ? 'Beam ACO' : 'Tie')) : 'N/A'
+    distance: (acoFinalDistance != null && beamFinalDistance != null)
+      ? (acoFinalDistance < beamFinalDistance ? 'ACO' : (beamFinalDistance < acoFinalDistance ? 'Beam ACO' : 'Tie'))
+      : 'N/A',
+    time: (acoTimeMin != null && beamTimeMin != null)
+      ? (acoTimeMin < beamTimeMin ? 'ACO' : (beamTimeMin < acoTimeMin ? 'Beam ACO' : 'Tie'))
+      : 'N/A',
+    memory: (acoMemBytes != null && beamMemBytes != null)
+      ? (acoMemBytes < beamMemBytes ? 'ACO' : (beamMemBytes < acoMemBytes ? 'Beam ACO' : 'Tie'))
+      : 'N/A',
+    computeTime: (acoCompMs != null && beamCompMs != null)
+      ? (acoCompMs < beamCompMs ? 'ACO' : (beamCompMs < acoCompMs ? 'Beam ACO' : 'Tie'))
+      : 'N/A'
   };
 
-  // Compose quick insight text (safe, checks for missing data)
   const quickInsights = [];
   if (acoFinalDistance != null && beamFinalDistance != null) {
     const diff = Math.abs(acoFinalDistance - beamFinalDistance);
     const better = winners.distance === 'ACO' ? 'ACO' : winners.distance === 'Beam ACO' ? 'Beam ACO' : 'Neither (tie)';
-    quickInsights.push(`${better} produced the shorter route by ${diff.toFixed(2)} (units same as input).`);
+    quickInsights.push(`${better} produced the shorter route by ${diff.toFixed(2)} km.`);
   } else if (acoFinalDistance != null || beamFinalDistance != null) {
     quickInsights.push('Final distance available only for one algorithm — compare carefully.');
   }
@@ -121,17 +198,16 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
     }
   }
 
-  if (aco.computationTime != null && beam.computationTime != null) {
-    const fasterCompute = aco.computationTime < beam.computationTime ? 'ACO' : (beam.computationTime < aco.computationTime ? 'Beam ACO' : 'Tie');
+  if (acoCompMs != null && beamCompMs != null) {
+    const fasterCompute = acoCompMs < beamCompMs ? 'ACO' : (beamCompMs < acoCompMs ? 'Beam ACO' : 'Tie');
     if (fasterCompute !== 'Tie') quickInsights.push(`${fasterCompute} required less computation time.`);
   }
 
-  if (aco.memoryUsage != null && beam.memoryUsage != null) {
-    const lighter = aco.memoryUsage < beam.memoryUsage ? 'ACO' : (beam.memoryUsage < aco.memoryUsage ? 'Beam ACO' : 'Tie');
+  if (acoMemBytes != null && beamMemBytes != null) {
+    const lighter = acoMemBytes < beamMemBytes ? 'ACO' : (beamMemBytes < acoMemBytes ? 'Beam ACO' : 'Tie');
     if (lighter !== 'Tie') quickInsights.push(`${lighter} had lower memory usage.`);
   }
 
-  // Data for the chart 
   const chartData = mergeChartData(aco.bestPerIteration || [], beam.bestPerIteration || []);
 
   return (
@@ -160,11 +236,11 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
               <tr>
                 <td>Route Time</td>
                 <td>
-                  {formatTime(aco.time)}
+                  {formatTime(acoTimeMin)}
                   {winners.time === 'ACO' && <Badge bg="success" className="ms-2">Better</Badge>}
                 </td>
                 <td>
-                  {formatTime(beam.time)}
+                  {formatTime(beamTimeMin)}
                   {winners.time === 'Beam ACO' && <Badge bg="success" className="ms-2">Better</Badge>}
                 </td>
               </tr>
@@ -172,11 +248,11 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
               <tr>
                 <td>Distance</td>
                 <td>
-                  {acoFinalDistance != null ? formatDistance(acoFinalDistance) : formatDistance(aco.distance)}
+                  {formatDistance(acoFinalDistance)}
                   {winners.distance === 'ACO' && <Badge bg="success" className="ms-2">Shorter</Badge>}
                 </td>
                 <td>
-                  {beamFinalDistance != null ? formatDistance(beamFinalDistance) : formatDistance(beam.distance)}
+                  {formatDistance(beamFinalDistance)}
                   {winners.distance === 'Beam ACO' && <Badge bg="success" className="ms-2">Shorter</Badge>}
                 </td>
               </tr>
@@ -184,11 +260,11 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
               <tr>
                 <td>Memory Usage</td>
                 <td>
-                  {formatMemory(aco.memoryUsage)}
+                  {formatMemory(acoMemBytes)}
                   {winners.memory === 'ACO' && <Badge bg="success" className="ms-2">Lower</Badge>}
                 </td>
                 <td>
-                  {formatMemory(beam.memoryUsage)}
+                  {formatMemory(beamMemBytes)}
                   {winners.memory === 'Beam ACO' && <Badge bg="success" className="ms-2">Lower</Badge>}
                 </td>
               </tr>
@@ -196,18 +272,17 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
               <tr>
                 <td>Computation Time</td>
                 <td>
-                  {formatComputeTime(aco.computationTime)}
+                  {formatComputeTime(acoCompMs)}
                   {winners.computeTime === 'ACO' && <Badge bg="success" className="ms-2">Faster</Badge>}
                 </td>
                 <td>
-                  {formatComputeTime(beam.computationTime)}
+                  {formatComputeTime(beamCompMs)}
                   {winners.computeTime === 'Beam ACO' && <Badge bg="success" className="ms-2">Faster</Badge>}
                 </td>
               </tr>
             </tbody>
           </Table>
 
-          {/* Quick automated insights visible to the user immediately */}
           <Card className="mb-3">
             <Card.Body style={{ padding: '0.75rem' }}>
               <strong>Quick insights:</strong>
@@ -225,7 +300,6 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
         </Col>
       </Row>
 
-      {/* Convergence chart + short explanation */}
       <Row>
         <Col md={12} style={{ height: 380, padding: '0 1rem' }}>
           <h5 style={{ marginBottom: '0.5rem', fontWeight: 500 }}>
@@ -242,33 +316,18 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
             <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="iteration" />
-              <YAxis
-                label={{ value: 'Fitness Score', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
-              />
+              <YAxis label={{ value: 'Route Distance (km)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
               <RechartsTooltip />
               <Legend />
               {beam.bestPerIteration && (
-                <Line
-                  type="monotone"
-                  dataKey="BeamACO"
-                  stroke="#1f77b4"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                <Line type="monotone" dataKey="BeamACO" stroke="#1f77b4" strokeWidth={2} dot={false} />
               )}
               {aco.bestPerIteration && (
-                <Line
-                  type="monotone"
-                  dataKey="ACO"
-                  stroke="#2ca02c"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                <Line type="monotone" dataKey="ACO" stroke="#2ca02c" strokeWidth={2} dot={false} />
               )}
             </LineChart>
           </ResponsiveContainer>
 
-          {/* Short textual guide under the chart */}
           <div style={{ marginTop: 8, fontSize: '0.9rem', color: '#333' }}>
             <strong>How to read this chart:</strong>
             <span className="ms-2">
@@ -278,7 +337,6 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
         </Col>
       </Row>
 
-      {/* Collapsible detailed explanation for thesis readers */}
       <Row className="mt-3">
         <Col>
           <Accordion>
@@ -287,37 +345,31 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
               <Accordion.Body>
                 <h6>What each metric represents</h6>
                 <ul>
-                  <li><strong>Route Time:</strong> Estimated traversal time across stops (converted from minutes). Useful when route length alone isn't enough, real-world travel time can differ due to speed assumptions.</li>
-                  <li><strong>Distance:</strong> Total route length. Lower values mean a shorter path and usually better optimization for TSP-like problems.</li>
-                  <li><strong>Memory Usage:</strong> Approximate RAM consumed during algorithm execution. Relevant for scaling to larger problem sizes.</li>
-                  <li><strong>Computation Time:</strong> Wall-clock time the algorithm needed to finish; important for practical deployment and responsiveness.</li>
+                  <li><strong>Route Time:</strong> Estimated traversal time across stops. Lower is better.</li>
+                  <li><strong>Distance:</strong> Total route length in kilometers. Lower is better for TSP-like problems.</li>
+                  <li><strong>Memory Usage:</strong> Peak/typical RAM used in bytes. Lower is better for scaling.</li>
+                  <li><strong>Computation Time:</strong> Wall-clock time to complete (ms). Lower is better for responsiveness.</li>
                 </ul>
 
                 <h6>Automated comparison summary</h6>
-                <p>
-                  This section programmatically compares final values and iteration behavior for ACO vs Beam-ACO:
-                </p>
                 <ul>
                   <li>
-                    <strong>Final best distances:</strong> {acoFinalDistance != null ? `${acoFinalDistance.toFixed(2)}` : 'N/A'} (ACO) vs {beamFinalDistance != null ? `${beamFinalDistance.toFixed(2)}` : 'N/A'} (Beam ACO).
+                    <strong>Final best distances:</strong> {acoFinalDistance != null ? `${acoFinalDistance.toFixed(2)}` : 'N/A'} (ACO) vs {beamFinalDistance != null ? `${beamFinalDistance.toFixed(2)}` : 'N/A'} (Beam ACO)
                     {winners.distance !== 'N/A' && winners.distance !== 'Tie' ? (
                       <span className="ms-2"><Badge bg="info">{winners.distance} better (distance)</Badge></span>
                     ) : winners.distance === 'Tie' ? <span className="ms-2"><Badge bg="secondary">Tie</Badge></span> : null}
                   </li>
-
                   <li>
                     <strong>Convergence speed:</strong> {acoStats && beamStats ? (
                       <span>
-                        ACO best at iteration {acoStats.minIndex}, Beam ACO best at {beamStats.minIndex}. The algorithm with the lower index found its best solution earlier (faster convergence).
+                        ACO best @ iteration {acoStats.minIndex}, Beam ACO best @ iteration {beamStats.minIndex}. Lower index = earlier best solution.
                       </span>
                     ) : <span>Insufficient iteration data to compute convergence speed.</span>}
                   </li>
-
                   <li>
-                    <strong>Computation vs quality trade-off:</strong> Consider both "Computation Time" and "Distance" together; depending on the constraints (hardware, real-time requirements), a solution that slightly increases distance but faces notably greater computation costs might not be as acceptable.
+                    <strong>Computation vs quality trade-off:</strong> Consider both compute time and distance together relative to deployment constraints.
                   </li>
                 </ul>
-
               </Accordion.Body>
             </Accordion.Item>
           </Accordion>

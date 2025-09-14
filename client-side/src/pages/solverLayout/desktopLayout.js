@@ -148,7 +148,7 @@ function DesktopLayout({
               </div>
               ) : (
               <div style={{ padding: '20px', background: '#FFFAFA', height: '100%' }}>
-                <EvaluationComponent evaluationData={evaluationData} />
+                <EvaluationComponent evaluationData={evaluationData}/>
               </div>
             )}
           </Col>
