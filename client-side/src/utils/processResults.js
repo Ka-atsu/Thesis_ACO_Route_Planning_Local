@@ -1,4 +1,5 @@
 import { getContinuousRoute, getContinuousRouteSplit } from './routeUtis';
+import { inferDatasetName } from './datasetUtils';
 
 const processACOandBeamResults = async ({
   acoResultData,
@@ -10,7 +11,9 @@ const processACOandBeamResults = async ({
   setIsTSPSolved,
   setEvaluationData,
   memoryUsedAco,
-  memoryUsedBeamAco
+  memoryUsedBeamAco,
+  currentSavedRoute,
+  setDatasetName 
 }) => {
   if (!acoResultData || !beamAcoResultData) return;
 
@@ -43,7 +46,11 @@ const processACOandBeamResults = async ({
 
   setIsTSPSolved(true);
 
+  const dsName = inferDatasetName(currentSavedRoute, markers);
+  setDatasetName?.(dsName);
+
   setEvaluationData({
+    datasetName: dsName,
     aco: {
       time: acoResultData.bestPathDuration,
       distance: acoResultData.bestPathLength,

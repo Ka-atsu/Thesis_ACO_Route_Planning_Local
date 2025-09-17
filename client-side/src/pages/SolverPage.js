@@ -22,6 +22,7 @@ function SolverPage() {
   const [activePanelMap, setActivePanelMap] = useState('map'); 
 
   const [evaluationData, setEvaluationData] = useState({}); 
+  const [allEvaluations, setAllEvaluations] = useState([]);
 
   // Load saved markers and routes from localStorage
   useEffect(() => {
@@ -31,6 +32,23 @@ function SolverPage() {
     const storedRoutes = localStorage.getItem('savedRoutes');
     if (storedRoutes) setSavedRoutes(JSON.parse(storedRoutes));
   }, []);
+
+  useEffect(() => {
+    if (!evaluationData) return;
+
+    setAllEvaluations(prev => {
+      const i = prev.findIndex(e => e.datasetName === evaluationData.datasetName);
+      if (i === -1) {
+        // add new dataset evaluation
+        return [...prev, evaluationData];
+      } else {
+        // update existing dataset evaluation
+        const copy = [...prev];
+        copy[i] = evaluationData;
+        return copy;
+      }
+    });
+  }, [evaluationData]);
 
   // Re-solve route when transport mode changes and TSP was solved
   useEffect(() => {
@@ -118,6 +136,7 @@ function SolverPage() {
           routes={routes}
           routeSequences={routeSequences}
           evaluationData={evaluationData}
+          allEvaluations={allEvaluations} 
           activePanel={activePanel}
           setActivePanel={setActivePanel}
           activePanelMap={activePanelMap}

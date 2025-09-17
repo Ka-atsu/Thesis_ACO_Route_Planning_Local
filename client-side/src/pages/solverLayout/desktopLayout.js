@@ -10,6 +10,7 @@ import Button from 'react-bootstrap/Button';
 import { FaInfoCircle, FaMapPin } from 'react-icons/fa';
 import { FaMapLocationDot } from "react-icons/fa6";
 import { ImStatsBars } from "react-icons/im";
+import ScalabilityPanel from '../../solverComponent/ScalabilityPanel';
 
 function DesktopLayout({
     markers,
@@ -24,6 +25,7 @@ function DesktopLayout({
     routes,
     routeSequences,
     evaluationData,
+    allEvaluations, 
     activePanel,
     setActivePanel,
     activePanelMap,
@@ -149,6 +151,7 @@ function DesktopLayout({
               ) : (
               <div style={{ padding: '20px', background: '#FFFAFA', height: '100%' }}>
                 <EvaluationComponent evaluationData={evaluationData}/>
+                <ScalabilityPanel allEvaluations={allEvaluations} />
               </div>
             )}
           </Col>
