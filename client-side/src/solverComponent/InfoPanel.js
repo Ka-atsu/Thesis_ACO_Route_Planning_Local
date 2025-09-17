@@ -1,4 +1,8 @@
-import { Container, Row, Col, Button, Form } from 'react-bootstrap';
+import Container from "react-bootstrap/Container";
+import Row from "react-bootstrap/Row";
+import Col from "react-bootstrap/Col";
+import Button from "react-bootstrap/Button";
+import Form from "react-bootstrap/Form";
 import { FaPlus, FaStop, FaRoute, FaMinusCircle, FaUndo, FaWalking, FaArrowLeft } from 'react-icons/fa';
 import { GiCycling } from "react-icons/gi";
 import { IoCarSport } from "react-icons/io5";

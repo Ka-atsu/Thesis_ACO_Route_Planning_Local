@@ -1,5 +1,7 @@
 // components/ScalabilityPanel.jsx
-import { Badge, Card, Container } from "react-bootstrap";
+import Badge from "react-bootstrap/Badge";
+import Card from "react-bootstrap/Card";
+import Container from "react-bootstrap/Container";
 import ScalabilityTableSingleRun from "./ScalabilityTableSingleRun";
 import { inferStopsFromDatasetName } from "../utils/datasetUtils";
 import { linearRegression } from "../utils/linear";

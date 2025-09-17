@@ -16,6 +16,29 @@ export function inferDatasetName(route, markers = []) {
   return `Custom Dataset (${m} Stops)`;
 }
 
+// ---- TIME (ROUTE DURATION) ----
+export const toMinutes = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    const hms = s.match(/^(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+    if (hms) {
+      const h = parseInt(hms[1], 10), m = parseInt(hms[2], 10), sec = parseInt(hms[3], 10);
+      return h * 60 + m + sec / 60;
+    }
+    const sec = s.match(/^(\d+(?:\.\d+)?)\s*s$/i);
+    if (sec) return parseFloat(sec[1]) / 60;
+    const min = s.match(/^(\d+(?:\.\d+)?)\s*m$/i);
+    if (min) return parseFloat(min[1]);
+    const hm = s.match(/^(\d+(?:\.\d+)?)\s*h(?:\s*(\d+(?:\.\d+)?)\s*m)?$/i);
+    if (hm) return parseFloat(hm[1]) * 60 + (hm[2] ? parseFloat(hm[2]) : 0);
+    const n = Number.parseFloat(s);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
+
 export const formatTime = (minutes) => {
   if (minutes == null || !Number.isFinite(minutes)) return 'N/A';
   const totalSeconds = Math.round(minutes * 60);
@@ -25,9 +48,98 @@ export const formatTime = (minutes) => {
   return `${hrs}h ${mins}m ${secs}s`;
 };
 
+// ---- DISTANCE (KM) ----
+export const toKilometers = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase().replace(/,/g, '');
+    if (s.endsWith('KM')) return parseFloat(s);
+    if (s.endsWith('M')) return parseFloat(s) / 1000;
+    const n = Number.parseFloat(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+};
+
 export const formatDistance = (km) => {
   if (km == null || !Number.isFinite(km)) return 'N/A';
   return `${km.toFixed(2)} km`;
+};
+
+// ---- MEMORY (BYTES) ----
+export const toBytes = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    return Math.round(val); // already bytes
+  }
+  if (typeof val === 'string') {
+    const s = val.trim().toUpperCase().replace(/,/g, '');
+    const num = parseFloat(s);
+    if (!Number.isFinite(num)) return null;
+    return Math.round(num); // assume string also in bytes
+  }
+  return null;
+};
+
+export const formatMemory = (bytes) => {
+  if (bytes == null || !Number.isFinite(bytes)) return 'N/A';
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${bytes} B`;
+};
+
+// ---- COMPUTATION TIME (MS) ----
+export const toMillis = (val) => {
+  if (val == null) return null;
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    return val < 60 ? Math.round(val * 1000) : Math.round(val);
+  }
+  if (typeof val === 'string') {
+    const s = val.trim().toLowerCase();
+    const ms = s.match(/^(\d+(?:\.\d+)?)\s*ms$/);
+    if (ms) return Math.round(parseFloat(ms[1]));
+    const sec = s.match(/^(\d+(?:\.\d+)?)\s*s$/);
+    if (sec) return Math.round(parseFloat(sec[1]) * 1000);
+    const n = Number.parseFloat(s);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  return null;
+};
+
+export const formatComputeTime = (ms) => {
+  if (ms == null || !Number.isFinite(ms)) return 'N/A';
+  return `${(ms / 1000).toFixed(2)} s`;
+};
+
+// ======================
+// Chart data preparation
+// ======================
+export const mergeChartData = (acoDataRaw = [], beamDataRaw = []) => {
+  const maxLength = Math.max(acoDataRaw.length, beamDataRaw.length);
+  const data = [];
+  for (let i = 0; i < maxLength; i++) {
+    const acoScore = acoDataRaw[i] != null ? toKilometers(acoDataRaw[i].bestDistance) : null;
+    const beamScore = beamDataRaw[i] != null ? toKilometers(beamDataRaw[i].bestDistance) : null;
+    data.push({
+      iteration: i,
+      ACO: acoScore != null ? parseFloat(acoScore.toFixed(2)) : null,
+      BeamACO: beamScore != null ? parseFloat(beamScore.toFixed(2)) : null
+    });
+  }
+  return data;
+};
+
+// Small analysis helpers
+export const analyzeIterations = (arr = []) => {
+  if (!arr || arr.length === 0) return null;
+  const distances = arr.map(x => toKilometers(x.bestDistance)).filter(v => v != null && Number.isFinite(v));
+  if (distances.length === 0) return null;
+  const minVal = Math.min(...distances);
+  const minIndex = distances.indexOf(minVal);
+  const lastVal = distances[distances.length - 1];
+  return { length: arr.length, minVal, minIndex, lastVal };
 };
 
 export function inferStopsFromDatasetName(name = "") {
