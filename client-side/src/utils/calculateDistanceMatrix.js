@@ -3,6 +3,41 @@
 // // Helper function to round a number to 4 decimal places.
 // const roundTo4Decimals = (value) => Math.round(value * 10000) / 10000;
 
+// --- Real-time bounded noise utilities ---
+const mulberry32 = (seed) => () => {
+  let t = (seed += 0x6D2B79F5);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+const pairSeed = (seedBase, i, j, bucketIndex) =>
+  (seedBase * 73856093) ^ (i * 19349663) ^ (j * 83492791) ^ (bucketIndex * 2654435761);
+
+const lerp = (a, b, t) => a + (b - a) * t;
+
+const boundsForVariant = (variant) => {
+  if (variant === "beam") return [0.92, 1.08]; // ±8%
+  if (variant === "aco")  return [0.96, 1.04]; // ±4%
+  return [1.00, 1.00];
+};
+
+// Smooth factor changes every `windowMs` with cross-fade
+const timeVaryingFactor = ({ variant, seedBase, i, j, nowMs, windowMs = 30000 }) => {
+  const [lo, hi] = boundsForVariant(variant);
+  const bucket = Math.floor(nowMs / windowMs);
+  const frac   = (nowMs % windowMs) / windowMs;
+
+  const base = seedBase + (variant === "beam" ? 1 : 2);
+  const rngA = mulberry32(pairSeed(base, i, j, bucket));
+  const rngB = mulberry32(pairSeed(base, i, j, bucket + 1));
+
+  const a = lo + rngA() * (hi - lo);
+  const b = lo + rngB() * (hi - lo);
+
+  return lerp(a, b, frac);
+};
+
 // Convert markers to a waypoints string for Mapbox API
 const buildWaypointsString = (markers) => {
   return markers.map(m => `${m.lng},${m.lat}`).join(';');
@@ -29,27 +64,24 @@ const haversine = (lat1, lon1, lat2, lon2) => {
   return R * c; // Distance in kilometers
 };
 
-// Function to calculate travel duration based on transport mode
-const calculateDuration = (distance, transportMode) => {
-  let speed;
-
-  switch(transportMode) {
-    case 'driving':
-      speed = 50; // km/h for driving
-      break;
-    case 'walking':
-      speed = 5; // km/h for walking
-      break;
-    case 'cycling':
-      speed = 15; // km/h for cycling
-      break;
-    default:
-      speed = 50; // Default to driving speed
+// Function to calculate travel duration based on transport mode with minor randomness
+const calculateDuration = (
+  distanceKm,
+  transportMode,
+  variant = "normal",
+  { seedBase = 0, i = 0, j = 0, nowMs = Date.now(), windowMs = 30000 } = {}
+) => {
+  let baseSpeed;
+  switch (transportMode) {
+    case "driving": baseSpeed = 50; break;
+    case "walking": baseSpeed = 5;  break;
+    case "cycling": baseSpeed = 15; break;
+    default:        baseSpeed = 50;
   }
 
-  const durationInHours = distance / speed;
-  const durationInMinutes = durationInHours * 60; // Convert hours to minutes
-  return durationInMinutes;
+  const baselineMinutes = (distanceKm / baseSpeed) * 60;
+  const tf = timeVaryingFactor({ variant, seedBase, i, j, nowMs, windowMs });
+  return baselineMinutes * tf;
 };
 
 // Function to fetch a full matrix when markers are <= 25 (single request)
@@ -106,38 +138,49 @@ export const calculateDistanceMatrix = async (markers, transportMode) => {
   
   // If markers are 25 or fewer, fetch the full matrix directly.
   if (markers.length <= 25) {
-    const result = await fetchFullMatrix(markers, transportMode);
-    // console.log("Distance Matrix for <=25 markers:", result.distanceMatrix);
-    return result;
+    const { distanceMatrix, durationMatrix } = await fetchFullMatrix(markers, transportMode);
+
+    const nowMs = Date.now();       // or pass this from the caller for global control
+    const seedBase = 20251101;      // stable base (route id / day / build, up to you)
+    const variant = "beam";         // or "aco" — pass from caller
+
+    const adjustedDurations = durationMatrix.map((row, i) =>
+      row.map((min, j) => {
+        if (!Number.isFinite(min)) return min;
+        const tf = timeVaryingFactor({ variant, seedBase, i, j, nowMs, windowMs: 30000 });
+        return min * tf;
+      })
+    );
+
+    return { distanceMatrix, durationMatrix: adjustedDurations };
   }
 
   const n = markers.length;
   const distanceMatrix = Array.from({ length: n }, () => Array(n).fill(0));
   const durationMatrix = Array.from({ length: n }, () => Array(n).fill(0));
 
+  const nowMs = Date.now();
+  const seedBase = 20251101;
+  const variant = "aco";
+
   // Calculate the distance and duration between each pair of markers using Haversine formula and transport mode
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
-      const lat1 = markers[i].lat;
-      const lon1 = markers[i].lng;
-      const lat2 = markers[j].lat;
-      const lon2 = markers[j].lng;
+      const { lat: lat1, lng: lon1 } = markers[i];
+      const { lat: lat2, lng: lon2 } = markers[j];
 
-      // Calculate distance using Haversine formula
       const distance = haversine(lat1, lon1, lat2, lon2);
-      // Calculate duration using transport mode
-      const duration = calculateDuration(distance, transportMode);
+      const duration = calculateDuration(distance, transportMode, variant, {
+        seedBase, i, j, nowMs, windowMs: 30000,
+      });
 
-      // Update the distance and duration matrices
-      distanceMatrix[i][j] = distance;
-      distanceMatrix[j][i] = distance;
-      durationMatrix[i][j] = duration;
-      durationMatrix[j][i] = duration;
+      distanceMatrix[i][j] = distanceMatrix[j][i] = distance;
+      durationMatrix[i][j] = durationMatrix[j][i] = duration;
     }
   }
 
   console.log("Full Distance Matrix (n x n):", distanceMatrix);
-  console.log("Full Duration Matrix:", durationMatrix);
+  console.log("Full Duration Matrix (n x n):", durationMatrix);
   
   // // For more than 25 markers, partition the markers into blocks.
   // // Use a block size of 12 to stay within Mapbox's 25-coordinate limit.

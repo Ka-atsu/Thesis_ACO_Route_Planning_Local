@@ -4,25 +4,12 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Badge from "react-bootstrap/Badge";
-import Accordion from "react-bootstrap/Accordion";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import Card from "react-bootstrap/Card";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
-
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatDistance, formatComputeTime, formatMemory, formatTime , toBytes, toKilometers, toMillis, toMinutes, mergeChartData, analyzeIterations } from '../utils/datasetUtils';
-// ======================
-// Component
-// ======================
+
 const EvaluationComponent = ({ evaluationData = {} }) => {
   const aco = evaluationData.aco || {};
   const beam = evaluationData.beam || {};
@@ -35,9 +22,6 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
 
   const acoMemBytes = useMemo(() => { const v = toBytes(aco.memoryUsage); return v == null ? v : Math.abs(v); }, [aco.memoryUsage]);
   const beamMemBytes = useMemo(() => { const v = toBytes(beam.memoryUsage); return v == null ? v : Math.abs(v); }, [beam.memoryUsage]);
-
-  console.log(aco.memoryUsage);
-  console.log(beam.memoryUsage);
 
   const acoCompMs = useMemo(() => toMillis(aco.computationTime), [aco.computationTime]);
   const beamCompMs = useMemo(() => toMillis(beam.computationTime), [beam.computationTime]);
@@ -93,22 +77,45 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
 
   const chartData = mergeChartData(aco.bestPerIteration || [], beam.bestPerIteration || []);
 
+  const darkStyles = {
+    container: {
+      padding: '2.5rem',
+      maxWidth: '1080px',
+      background: '#1A1A1D',
+      color: '#EAEAEA',
+      borderRadius: '10px',
+    },
+    card: {
+      background: '#2A2A2E',
+      border: '1px solid #333',
+      color: '#EAEAEA'
+    },
+    table: {
+      background: '#2A2A2E',
+      color: '#EAEAEA',
+    },
+    header: {
+      fontWeight: 600,
+      color: '#FFFFFF',
+    }
+  };
+
   return (
-    <Container style={{ padding: '2.5rem', maxWidth: '1080px', background: '#FFFAFA' }}>
+    <Container style={darkStyles.container}>
       <Row className="mb-3">
         <Col>
-          <h5 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>
+          <h5 style={darkStyles.header}>
             Evaluation Summary
             <OverlayTrigger
               placement="right"
               overlay={<Tooltip id="tooltip-metrics">This table shows core performance metrics. Lower values are better for time, distance, memory and computation time.</Tooltip>}
             >
-              <span style={{ marginLeft: 8, cursor: 'pointer', color: '#6c757d' }}>ℹ️</span>
+              <span style={{ marginLeft: 8, cursor: 'pointer', color: '#BBBBBB' }}>ℹ️</span>
             </OverlayTrigger>
           </h5>
 
-          <Table responsive bordered hover size="sm" style={{ fontSize: '0.95rem' }}>
-            <thead className="table-light">
+          <Table responsive bordered hover size="sm" style={darkStyles.table} className="table-dark">
+            <thead style={{ background: '#333', color: '#EAEAEA' }}>
               <tr>
                 <th>Metric</th>
                 <th>ACO</th>
@@ -118,55 +125,28 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
             <tbody>
               <tr>
                 <td>Route Time</td>
-                <td>
-                  {formatTime(acoTimeMin)}
-                  {winners.time === 'ACO' && <Badge bg="success" className="ms-2">Better</Badge>}
-                </td>
-                <td>
-                  {formatTime(beamTimeMin)}
-                  {winners.time === 'Beam ACO' && <Badge bg="success" className="ms-2">Better</Badge>}
-                </td>
+                <td>{formatTime(acoTimeMin)}{winners.time === 'ACO' && <Badge bg="success" className="ms-2">Better</Badge>}</td>
+                <td>{formatTime(beamTimeMin)}{winners.time === 'Beam ACO' && <Badge bg="success" className="ms-2">Better</Badge>}</td>
               </tr>
-
               <tr>
                 <td>Distance</td>
-                <td>
-                  {formatDistance(acoFinalDistance)}
-                  {winners.distance === 'ACO' && <Badge bg="success" className="ms-2">Shorter</Badge>}
-                </td>
-                <td>
-                  {formatDistance(beamFinalDistance)}
-                  {winners.distance === 'Beam ACO' && <Badge bg="success" className="ms-2">Shorter</Badge>}
-                </td>
+                <td>{formatDistance(acoFinalDistance)}{winners.distance === 'ACO' && <Badge bg="success" className="ms-2">Shorter</Badge>}</td>
+                <td>{formatDistance(beamFinalDistance)}{winners.distance === 'Beam ACO' && <Badge bg="success" className="ms-2">Shorter</Badge>}</td>
               </tr>
-
               <tr>
                 <td>Memory Usage</td>
-                <td>
-                  {formatMemory(acoMemBytes)}
-                  {winners.memory === 'ACO' && <Badge bg="success" className="ms-2">Lower</Badge>}
-                </td>
-                <td>
-                  {formatMemory(beamMemBytes)}
-                  {winners.memory === 'Beam ACO' && <Badge bg="success" className="ms-2">Lower</Badge>}
-                </td>
+                <td>{formatMemory(acoMemBytes)}{winners.memory === 'ACO' && <Badge bg="success" className="ms-2">Lower</Badge>}</td>
+                <td>{formatMemory(beamMemBytes)}{winners.memory === 'Beam ACO' && <Badge bg="success" className="ms-2">Lower</Badge>}</td>
               </tr>
-
               <tr>
                 <td>Computation Time</td>
-                <td>
-                  {formatComputeTime(acoCompMs)}
-                  {winners.computeTime === 'ACO' && <Badge bg="success" className="ms-2">Faster</Badge>}
-                </td>
-                <td>
-                  {formatComputeTime(beamCompMs)}
-                  {winners.computeTime === 'Beam ACO' && <Badge bg="success" className="ms-2">Faster</Badge>}
-                </td>
+                <td>{formatComputeTime(acoCompMs)}{winners.computeTime === 'ACO' && <Badge bg="success" className="ms-2">Faster</Badge>}</td>
+                <td>{formatComputeTime(beamCompMs)}{winners.computeTime === 'Beam ACO' && <Badge bg="success" className="ms-2">Faster</Badge>}</td>
               </tr>
             </tbody>
           </Table>
 
-          <Card className="mb-3">
+          <Card className="mb-3" style={darkStyles.card}>
             <Card.Body style={{ padding: '0.75rem' }}>
               <strong>Quick insights:</strong>
               {quickInsights.length === 0 ? (
@@ -185,77 +165,27 @@ const EvaluationComponent = ({ evaluationData = {} }) => {
 
       <Row>
         <Col md={12} style={{ height: 380, padding: '0 1rem' }}>
-          <h5 style={{ marginBottom: '0.5rem', fontWeight: 500 }}>
+          <h5 style={darkStyles.header}>
             Convergence Over Iterations
             <OverlayTrigger
               placement="right"
-              overlay={<Tooltip id="tooltip-convergence">This chart shows the best (lowest) route distance the algorithm has found at each iteration. A lower line is better; steep drops show rapid improvement.</Tooltip>}
+              overlay={<Tooltip id="tooltip-convergence">This chart shows the best (lowest) route distance found at each iteration.</Tooltip>}
             >
-              <span style={{ marginLeft: 8, cursor: 'pointer', color: '#6c757d' }}>ℹ️</span>
+              <span style={{ marginLeft: 8, cursor: 'pointer', color: '#BBBBBB' }}>ℹ️</span>
             </OverlayTrigger>
           </h5>
 
           <ResponsiveContainer width="100%" height="80%">
             <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="iteration" />
-              <YAxis label={{ value: 'Route Distance (km)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }} />
-              <RechartsTooltip />
+              <CartesianGrid stroke="#444" strokeDasharray="3 3" />
+              <XAxis dataKey="iteration" stroke="#EAEAEA" />
+              <YAxis stroke="#EAEAEA" label={{ value: 'Route Distance (km)', angle: -90, position: 'insideLeft', fill: '#EAEAEA' }} />
+              <RechartsTooltip contentStyle={{ backgroundColor: '#2A2A2E', border: '1px solid #444', color: '#EAEAEA' }} />
               <Legend />
-              {beam.bestPerIteration && (
-                <Line type="monotone" dataKey="BeamACO" stroke="#1f77b4" strokeWidth={2} dot={false} />
-              )}
-              {aco.bestPerIteration && (
-                <Line type="monotone" dataKey="ACO" stroke="#2ca02c" strokeWidth={2} dot={false} />
-              )}
+              {beam.bestPerIteration && <Line type="monotone" dataKey="BeamACO" stroke="#1f77b4" strokeWidth={2} dot={false} />}
+              {aco.bestPerIteration && <Line type="monotone" dataKey="ACO" stroke="#2ca02c" strokeWidth={2} dot={false} />}
             </LineChart>
           </ResponsiveContainer>
-
-          <div style={{ marginTop: 8, fontSize: '0.9rem', color: '#333' }}>
-            <strong>How to read this chart:</strong>
-            <span className="ms-2">
-              Each point shows the best route distance found up to that iteration. If a line falls quickly it means rapid improvement; if it flattens, the algorithm has converged.
-            </span>
-          </div>
-        </Col>
-      </Row>
-
-      <Row className="mt-3">
-        <Col>
-          <Accordion>
-            <Accordion.Item eventKey="0">
-              <Accordion.Header>Detailed interpretation (click to expand)</Accordion.Header>
-              <Accordion.Body>
-                <h6>What each metric represents</h6>
-                <ul>
-                  <li><strong>Route Time:</strong> Estimated traversal time across stops. Lower is better.</li>
-                  <li><strong>Distance:</strong> Total route length in kilometers. Lower is better for TSP-like problems.</li>
-                  <li><strong>Memory Usage:</strong> Peak/typical RAM used in bytes. Lower is better for scaling.</li>
-                  <li><strong>Computation Time:</strong> Wall-clock time to complete (ms). Lower is better for responsiveness.</li>
-                </ul>
-
-                <h6>Automated comparison summary</h6>
-                <ul>
-                  <li>
-                    <strong>Final best distances:</strong> {acoFinalDistance != null ? `${acoFinalDistance.toFixed(2)}` : 'N/A'} (ACO) vs {beamFinalDistance != null ? `${beamFinalDistance.toFixed(2)}` : 'N/A'} (Beam ACO)
-                    {winners.distance !== 'N/A' && winners.distance !== 'Tie' ? (
-                      <span className="ms-2"><Badge bg="info">{winners.distance} better (distance)</Badge></span>
-                    ) : winners.distance === 'Tie' ? <span className="ms-2"><Badge bg="secondary">Tie</Badge></span> : null}
-                  </li>
-                  <li>
-                    <strong>Convergence speed:</strong> {acoStats && beamStats ? (
-                      <span>
-                        ACO best @ iteration {acoStats.minIndex}, Beam ACO best @ iteration {beamStats.minIndex}. Lower index = earlier best solution.
-                      </span>
-                    ) : <span>Insufficient iteration data to compute convergence speed.</span>}
-                  </li>
-                  <li>
-                    <strong>Computation vs quality trade-off:</strong> Consider both compute time and distance together relative to deployment constraints.
-                  </li>
-                </ul>
-              </Accordion.Body>
-            </Accordion.Item>
-          </Accordion>
         </Col>
       </Row>
     </Container>
