@@ -8,7 +8,7 @@ import { GiCycling } from "react-icons/gi";
 import { IoCarSport } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
 
-function InfoPanel({ markers, markerMode, toggleMarkerMode, removeMarker, resetMarkers, solveTSP, transportMode, changeTransportMode }) {
+function InfoPanel({ markers, markerMode, toggleMarkerMode, removeMarker, resetMarkers, solveTSP , solveLocked, transportMode, changeTransportMode }) {
 
   const navigate = useNavigate();
 
@@ -72,7 +72,7 @@ function InfoPanel({ markers, markerMode, toggleMarkerMode, removeMarker, resetM
           <Button
             variant="primary"
             onClick={solveTSP}
-            disabled={markers.length < 4}
+            disabled={markers.length < 4 || solveLocked}
             style={{ width: '100%' }}
           >
             <FaRoute />

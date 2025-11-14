@@ -93,7 +93,7 @@ const fetchFullMatrix = async (markers, transportMode) => {
   walking: 5002
   };
 
-  const port = portMap[transportMode] || 5000;
+  const port = portMap[transportMode];
   const matrixUrl = `http://localhost:${port}/table/v1/driving/${waypoints}?annotations=distance,duration`;
   // const matrixUrl = `https://api.mapbox.com/directions-matrix/v1/mapbox/${transportMode}/${waypoints}?annotations=distance,duration&access_token=${MAPBOX_ACCESS_TOKEN}`;
   

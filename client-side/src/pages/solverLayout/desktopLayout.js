@@ -20,6 +20,7 @@ function DesktopLayout({
   solveTSP,
   isTSPSolved,
   solveLocked,
+  setSolveLocked,
   distance,
   estimatedTime,
   transportMode,
@@ -70,7 +71,7 @@ function DesktopLayout({
             markerMode={markerMode}
             toggleMarkerMode={() => setMarkerMode(!markerMode)}
             solveTSP={solveTSP}
-            isTSPSolved={isTSPSolved}
+            isTSPSolved={isTSPSolved} 
             solveLocked={solveLocked}
             distance={distance}
             estimatedTime={estimatedTime}
@@ -152,8 +153,10 @@ function DesktopLayout({
                     setMarkers(prev => {
                       const updated = [...prev];
                       updated[index] = { lat: newLat, lng: newLng };
+                      console.log(JSON.stringify(updated, null, 2));
                       return updated;
                     });
+                    setSolveLocked(false);
                   }}
                 />
               </div>
@@ -204,6 +207,7 @@ function DesktopLayout({
                       updated[index] = { lat: newLat, lng: newLng };
                       return updated;
                     });
+                    setSolveLocked(false);
                   }}
                 />
               </div>

@@ -24,6 +24,8 @@ function SolverPage() {
   const [evaluationData, setEvaluationData] = useState({}); 
   const [allEvaluations, setAllEvaluations] = useState([]);
 
+  const [solveLocked, setSolveLocked] = useState(false);
+
   // Load saved markers and routes from localStorage
   useEffect(() => {
     const storedMarkers = localStorage.getItem('markers');
@@ -51,19 +53,24 @@ function SolverPage() {
   }, [evaluationData]);
 
   // Re-solve route when transport mode changes and TSP was solved
-  useEffect(() => {
-    if (isTSPSolved) solveTSP();
+   useEffect(() => {
+    if (solveLocked) solveTSP();
     // eslint-disable-next-line 
-  }, [transportMode]);
+  }, [transportMode, solveLocked]);
 
   // Hook to handle TSP solving logic
-  const { solveTSP, isTSPSolved } = useTspSolver({
+  const { solveTSP, isTSPSolved  } = useTspSolver({
     markers,
     transportMode,
     setRoutes,
     setRouteSequences,
     setEvaluationData,
   });
+
+  const handleSolve = async () => {
+    await solveTSP();
+    setSolveLocked(true);
+  };
 
   // Handle removing a marker
   const handleRemoveMarker = () => {
@@ -74,6 +81,7 @@ function SolverPage() {
     setDistance(0);
     setEstimatedTime(0);
     setEvaluationData([]);
+    setSolveLocked(false);
   };
 
   // Handle resetting markers
@@ -84,6 +92,7 @@ function SolverPage() {
     setDistance(0);
     setEstimatedTime(0);
     setEvaluationData([]);
+    setSolveLocked(false);
     localStorage.removeItem('markers');
   };
 
@@ -103,6 +112,7 @@ function SolverPage() {
     setDistance(0);
     setEstimatedTime(0);
     setEvaluationData([]);
+    setSolveLocked(false);
     localStorage.removeItem('markers');
   };
 
@@ -128,7 +138,10 @@ function SolverPage() {
           setMarkers={setMarkers}
           markerMode={markerMode}
           setMarkerMode={setMarkerMode}
-          solveTSP={solveTSP}
+          solveTSP={handleSolve}
+          solveLocked={solveLocked}
+          isTSPSolved={isTSPSolved}
+          setSolveLocked={setSolveLocked}
           distance={distance}
           estimatedTime={estimatedTime}
           transportMode={transportMode}

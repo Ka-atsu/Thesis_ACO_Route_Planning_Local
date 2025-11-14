@@ -1,7 +1,3 @@
-// ===============================
-// OOP Beam-ACO (Distance + Duration, no time limit)
-// MATLAB-aligned: Q0 greedy, UseBestOnly, random start, adaptive tau0
-// ===============================
 class BeamACO {
   constructor(distanceMatrix, durationMatrix) {
     this.distanceMatrix = distanceMatrix;
@@ -21,7 +17,7 @@ class BeamACO {
     this.RHO   = 0.5;        // global evaporation rate
     this.Q     = 1;          // pheromone deposit constant
 
-    // Distance/Duration heuristic exponents (your multi-objective)
+    // Distance/Duration heuristic exponents
     this.BETA = 3;          // distance attractiveness exponent
     this.CHARLIE = 2;          // duration attractiveness exponent
 
@@ -30,12 +26,12 @@ class BeamACO {
 
     // MATLAB-aligned toggles
     this.Q0 = 0.2;              // probability of greedy pick within beam
-    this.USE_BEST_ONLY = true;  // deposit only iteration-best (plus elitist)
+    this.USE_BEST_ONLY = true;  // deposit only iteration-best
 
     // Pheromone clamping
     this.TAU_MIN = 1e-6;
     this.TAU_MAX = 10;
-    this.TAU0_AUTO = true;      // adaptive tau0 like MATLAB Tau0Auto
+    this.TAU0_AUTO = true; // adaptive tau0
 
     // Numerical safety
     this.EPS = 1e-12;
@@ -64,7 +60,7 @@ class BeamACO {
     this.pheromoneMatrix = this.initializePheromoneMatrix(this.CITY_NUM);
 
     // ---- Ants ----
-    this.ANT_NUM = Math.max(60, Math.min(100, Math.round(0.16 * this.CITY_NUM))); 
+    this.ANT_NUM = this.CITY_NUM;
     this.ants = Array.from(
       { length: this.ANT_NUM },
       () => new this.Ant(this, this.CITY_NUM, this.heurMatrix, this.staticNeighbors)
