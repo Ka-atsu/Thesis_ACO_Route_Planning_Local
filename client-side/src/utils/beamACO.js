@@ -4,31 +4,34 @@ class BeamACO {
     this.durationMatrix = durationMatrix;
 
     // ---- Core parameters ----
+    this.CITY_NUM = distanceMatrix.length;
+    this.ANT_NUM = Math.max(10, Math.floor(this.CITY_NUM / 2));
     this.ITER = 200;
     this.EXPLOITATION_THRESHOLD = 70;
 
+    // Beam width schedule: start wider, end narrower
     this.BEAM_INITIAL_FACTOR = 0.35;
     this.BEAM_FINAL_FACTOR   = 0.10;
 
-    this.BOOST = 2.0;      // boost for iteration-best paths
-    this.ELITE_WEIGHT = 1.5;      // extra global-best reinforcement each iter
+    this.BOOST = 2.0;             // extra boost for iteration-best path during exploitation
+    this.ELITE_WEIGHT = 1.5;      // extra reinforcement of global-best each iteration
 
+    // ACO parameters
     this.ALPHA = 1;          // pheromone influence
     this.RHO   = 0.5;        // global evaporation rate
     this.Q     = 1;          // pheromone deposit constant
 
-    // Distance/Duration heuristic exponents
-    this.BETA = 3;          // distance attractiveness exponent
+    // Heuristic exponents for distance and duration
+    this.BETA = 3;             // distance attractiveness exponent
     this.CHARLIE = 2;          // duration attractiveness exponent
 
-    // Local evaporation
+     // Local evaporation on edges as ants traverse them
     this.LOCAL_RHO = 0.12;
 
-    // MATLAB-aligned toggles
-    this.Q0 = 0.2;              // probability of greedy pick within beam
+    this.Q0 = 0.2;              // probability of greedy pick inside beam
     this.USE_BEST_ONLY = true;  // deposit only iteration-best
 
-    // Pheromone clamping
+    // Pheromone clamping (avoid stagnation)
     this.TAU_MIN = 1e-6;
     this.TAU_MAX = 10;
     this.TAU0_AUTO = true; // adaptive tau0
@@ -36,10 +39,8 @@ class BeamACO {
     // Numerical safety
     this.EPS = 1e-12;
 
-    // ---- Derived ----
-    this.CITY_NUM = distanceMatrix.length;
-
-    // ---- Precompute heuristic matrix (distance & duration) ----
+    // ---- Precompute combined heuristic matrix for all edges ----
+    // heurMatrix[i][j] encodes desirability based on distance and duration.
     this.heurMatrix = Array.from({ length: this.CITY_NUM }, () => new Array(this.CITY_NUM));
     for (let i = 0; i < this.CITY_NUM; i++) {
       for (let j = 0; j < this.CITY_NUM; j++) {
@@ -48,19 +49,19 @@ class BeamACO {
         const t = Math.max(this.durationMatrix[i][j], this.EPS);
         const distH = (1 / d) ** this.BETA;
         const timeH = (1 / t) ** this.CHARLIE;
-        this.heurMatrix[i][j] = distH * timeH;
+        this.heurMatrix[i][j] = distH * timeH;  // Combined multiplicative heuristic term
       }
     }
 
-    // ---- Static candidate lists (top M by heuristic) ----
+    // ---- Static candidate lists (nearest M neighbors by heuristic) ----
+    // Used to restrict neighbor search and speed up beam construction.
     const M = Math.min(this.CITY_NUM - 1, 50);
     this.staticNeighbors = this.buildStaticNeighbors(this.heurMatrix, M);
 
-    // ---- Pheromone ----
+    // Pheromone matrix initialization
     this.pheromoneMatrix = this.initializePheromoneMatrix(this.CITY_NUM);
 
     // ---- Ants ----
-    this.ANT_NUM = this.CITY_NUM;
     this.ants = Array.from(
       { length: this.ANT_NUM },
       () => new this.Ant(this, this.CITY_NUM, this.heurMatrix, this.staticNeighbors)
@@ -81,7 +82,7 @@ class BeamACO {
     this.S_DIST = avgOffDiag(this.distanceMatrix);
     this.S_DUR  = avgOffDiag(this.durationMatrix);
 
-    // ---- Tracking best ----
+    // ---- Tracking global best solution ----
     this.bestPath = [];
     this.bestScore = Infinity;
     this.bestDistance = 0;
@@ -90,7 +91,8 @@ class BeamACO {
   }
 
   // -------------------------
-  // MinHeap for top-K beam
+  // MinHeap for top-K beam selection
+  // Keeps only the highest-attractiveness K candidates.
   // -------------------------
   MinHeap = class {
     constructor(capacity) {
@@ -133,6 +135,8 @@ class BeamACO {
   // -------------------------
   // Helpers
   // -------------------------
+  // Build static nearest-neighbor lists based on heuristic strength.
+  // For each city i → store top M most attractive neighbors.
   buildStaticNeighbors(heurMatrix, M) {
     const n = heurMatrix.length;
     const staticNeighbors = Array.from({ length: n }, () => []);
@@ -147,8 +151,8 @@ class BeamACO {
     return staticNeighbors;
   }
 
+  // Initialize pheromone matrix with adaptive tau0 based on mean distance.
   initializePheromoneMatrix(numCities) {
-    // Adaptive tau0 like MATLAB Tau0Auto
     const n = numCities;
     let sum = 0, cnt = 0;
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
@@ -162,6 +166,7 @@ class BeamACO {
     return matrix;
   }
 
+  // Beam width schedule as a function of iteration.
   getBeamWidth(iter) {
     const b0 = this.BEAM_INITIAL_FACTOR * this.CITY_NUM;
     const b1 = this.BEAM_FINAL_FACTOR   * this.CITY_NUM;
@@ -170,7 +175,8 @@ class BeamACO {
   }
 
   // -------------------------
-  // Ant
+  // Ant Class
+  // Each ant uses Beam-guided neighbor selection.
   // -------------------------
   Ant = class {
     constructor(parent, cityNum, heurMatrix, staticNeighbors) {
@@ -192,11 +198,12 @@ class BeamACO {
       this.cur = start;
     }
 
+    // Beam-based selection of next city.
     next(distMatrix, durationMatrix, pheromoneMatrix, beamWidth) {
       const heap = new this.parent.MinHeap(beamWidth);
       const seenStatic = new Set();
 
-      // Static neighbors
+       // 1) First, consider static nearest neighbors of current city.
       for (let city of this.staticNeighbors[this.cur]) {
         if (!this.visited[city]) {
           seenStatic.add(city);
@@ -207,7 +214,7 @@ class BeamACO {
         }
       }
 
-      // Add others if needed
+       // 2) If beam not full, consider other cities (fallback expansion).
       if (heap.size() < beamWidth) {
         for (let city = 0; city < this.cityNum; city++) {
           if (city === this.cur || seenStatic.has(city) || this.visited[city]) continue;
@@ -221,7 +228,7 @@ class BeamACO {
       const beam = heap.data;
       if (!beam.length) return;
 
-     // --- pure roulette selection inside the beam
+    // --- Roulette selection *within* beam (random choice among top-K) ---
     let chosen = -1;
     const beamTotal = beam.reduce((s, it) => s + it.attractiveness, 0);
     if (isFinite(beamTotal) && beamTotal > 0) {
@@ -230,9 +237,10 @@ class BeamACO {
         threshold -= attractiveness;
         if (threshold <= 0) { chosen = city; break; }
       }
+      // Fallback: if threshold never went below 0, pick the last element
       if (chosen === -1) chosen = beam[beam.length - 1].city;
     } else {
-      // Greedy fallback if all attractiveness are 0
+      // Greedy fallback if all attractiveness are zero/NaN
       let bestCity = -1, bestScore = -Infinity;
       for (let city = 0; city < this.cityNum; city++) {
         if (city === this.cur || this.visited[city]) continue;
@@ -247,7 +255,7 @@ class BeamACO {
       pheromoneMatrix[this.cur][chosen] *= (1 - this.parent.LOCAL_RHO);
       pheromoneMatrix[chosen][this.cur] *= (1 - this.parent.LOCAL_RHO);
 
-      // Move
+      // Move ant to chosen city
       this.path.push(chosen);
       this.visited[chosen] = true;
       this.totalDistance += distMatrix[this.cur][chosen];
@@ -256,54 +264,58 @@ class BeamACO {
       this.moveCount++;
     }
 
+    // Build a complete tour using Beam-guided transitions.
     search(distMatrix, durationMatrix, pheromoneMatrix, beamWidth) {
       this.clean();
       while (this.moveCount < this.cityNum) {
         this.next(distMatrix, durationMatrix, pheromoneMatrix, beamWidth);
       }
-      // close tour
+      // Close tour back to start
       this.totalDistance += distMatrix[this.cur][this.path[0]];
       this.totalDuration += durationMatrix[this.cur][this.path[0]];
     }
   };
 
   // -------------------------
-  // Utility: score normalization
+  // Utility: combine distance and duration into a single score
+  // Smaller score is better.
   // -------------------------
   scoreOf(dist, dur) {
-    // normalized weighted sum (weights 1,1; adjust if desired)
+    // Normalized weighted sum of distance and duration.
     return (dist / this.S_DIST) + (dur / this.S_DUR);
   }
 
-  // deposit helper
+  // Helper to deposit pheromone along a full tour.
   _depositPath(path, deposit) {
     for (let k = 0; k < path.length - 1; k++) {
       const u = path[k], v = path[k + 1];
       this.pheromoneMatrix[u][v] += deposit;
       this.pheromoneMatrix[v][u] += deposit;
     }
+    // Close tour
     const last = path[path.length - 1], first = path[0];
     this.pheromoneMatrix[last][first] += deposit;
     this.pheromoneMatrix[first][last] += deposit;
   }
 
   // -------------------------
-  // Main loop (fixed iterations; no time limit)
+  // Main loop
   // -------------------------
   run() {
-    const startTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const startTime = performance.now();
 
     for (let iter = 0; iter < this.ITER; iter++) {
-      const beamWidth = this.getBeamWidth(iter);
+      const beamWidth = this.getBeamWidth(iter); // adapt beam width over time
 
       const iterationPaths  = [];
       const iterationScores = [];
       const iterationDists  = [];
       const iterationDurs   = [];
 
+       // Start exploitation after 30% of iterations
       const isExploitationPhase = iter >= Math.floor(0.3 * this.ITER);
 
-      // --- Construct solutions
+      // Construct solutions for ants
       for (let ant of this.ants) {
         ant.search(this.distanceMatrix, this.durationMatrix, this.pheromoneMatrix, beamWidth);
 
@@ -316,6 +328,7 @@ class BeamACO {
         iterationDists.push(dist);
         iterationDurs.push(dur);
 
+        // Update global best if current ant beats the best score
         if (score < this.bestScore) {
           this.bestScore    = score;
           this.bestPath     = ant.path.slice();
@@ -324,30 +337,33 @@ class BeamACO {
         }
       }
 
+       // Store history for convergence plotting
       this.bestSolutions.push({
         iteration: iter,
         bestDistance: this.bestDistance,
         bestDuration: this.bestDuration
       });
 
-      // --- Global evaporation
+      // Global evaporation on all edges 
       for (let i = 0; i < this.CITY_NUM; i++) {
         for (let j = 0; j < this.CITY_NUM; j++) {
           this.pheromoneMatrix[i][j] *= (1 - this.RHO);
         }
       }
 
-      // --- Deposition (MATLAB-like: iteration-best only, optional boost)
+      // Deposit pheromone mechanism
       let bestIterIdx = 0;
       for (let i = 1; i < iterationScores.length; i++) {
         if (iterationScores[i] < iterationScores[bestIterIdx]) bestIterIdx = i;
       }
 
       if (this.USE_BEST_ONLY) {
+        // Only reinforce the iteration-best path
         let deposit = this.Q / Math.max(iterationScores[bestIterIdx], this.EPS);
         if (isExploitationPhase) deposit *= this.BOOST;
         this._depositPath(iterationPaths[bestIterIdx], deposit);
       } else {
+        // Reinforce all paths (optionally extra boost for iteration-best)
         for (let i = 0; i < iterationPaths.length; i++) {
           let deposit = this.Q / Math.max(iterationScores[i], this.EPS);
           if (isExploitationPhase && i === bestIterIdx) deposit *= this.BOOST;
@@ -355,13 +371,13 @@ class BeamACO {
         }
       }
 
-      // --- Elitist reinforcement of global best
+      // Elitist reinforcement of global best path
       if (this.bestPath.length) {
         const eliteDeposit = this.ELITE_WEIGHT * (this.Q / Math.max(this.bestScore, this.EPS));
         this._depositPath(this.bestPath, eliteDeposit);
       }
 
-      // --- Clamp pheromones
+      // --- Clamp pheromones into [TAU_MIN, TAU_MAX] to avoid extremes
       for (let i = 0; i < this.CITY_NUM; i++) {
         for (let j = 0; j < this.CITY_NUM; j++) {
           const v = this.pheromoneMatrix[i][j];
@@ -370,7 +386,7 @@ class BeamACO {
       }
     }
 
-    const endTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const endTime = performance.now();
 
     return {
       bestPath: this.bestPath,
@@ -382,23 +398,8 @@ class BeamACO {
   }
 }
 
-// -------------------------
-// Public API
-// -------------------------
+// This module exports a function that runs the ACO algorithm on given distance and duration matrices.
 export function beamAcoAlgorithm(distanceMatrix, durationMatrix) {
-  if (!Array.isArray(distanceMatrix) || !distanceMatrix.every(r => Array.isArray(r))) {
-    console.error("Invalid distance matrix");
-    return { bestPath: [], bestPathLength: 0, bestPathDuration: 0 };
-  }
-  if (!Array.isArray(durationMatrix) || !durationMatrix.every(r => Array.isArray(r))) {
-    console.error("Invalid duration matrix");
-    return { bestPath: [], bestPathLength: 0, bestPathDuration: 0 };
-  }
-  if (distanceMatrix.length !== durationMatrix.length) {
-    console.error("Mismatched matrix sizes");
-    return { bestPath: [], bestPathLength: 0, bestPathDuration: 0 };
-  }
-
   const aco = new BeamACO(distanceMatrix, durationMatrix);
   return aco.run();
 }

@@ -3,16 +3,20 @@ class ACO {
     this.distanceMatrix = distanceMatrix;
     this.durationMatrix = durationMatrix;
 
-    // ---- Parameters ----
+    // ---- Core algorithm parameters ----
     this.CITY_NUM = distanceMatrix.length;                      // number of cities
     this.ANT_NUM = Math.max(10, Math.floor(this.CITY_NUM / 2)); // number of ants
     this.ITER = 200;                                            // number of iterations
+    
+    // Pheromone settings
     this.INITIAL_PHEROMONE = 0.200;                             // initial pheromone influence
     this.ALPHA = 1;                                             // pheromone influence
     this.RHO = 0.5;                                             // pheromone evaporation rate
     this.Q = 1;                                                 // pheromone deposit constant
-    this.GAMMA = 3;                                             // distance attractiveness
-    this.DELTA = 2;                                             // duration attractiveness
+
+    // Heuristic exponents (how strongly we care about distance vs duration)
+    this.BETA = 3;                                             // distance attractiveness
+    this.CHARLIE = 2;                                          // duration attractiveness
 
     // ---- State ----
     this.pheromoneMatrix = this.initializePheromoneMatrix(this.CITY_NUM); // pheromone levels
@@ -23,7 +27,7 @@ class ACO {
   }
 
   // -------------------------
-  // Pheromone matrix initialization
+  // Initialize pheromone matrix with a constant value
   // -------------------------
   initializePheromoneMatrix(numCities) {
     return Array.from({ length: numCities }, () =>
@@ -32,10 +36,15 @@ class ACO {
   }
 
   // -------------------------
-  // Pheromone update (evaporation + deposit)
+  // Global pheromone update:
+  //   1) Evaporation on all edges
+  //   2) Deposit pheromone along ants' paths
+  //
+  // allPaths:    array of paths (each path is an array of city indices)
+  // allPathLengths: array of distances corresponding to each path
   // -------------------------
   updatePheromoneMatrix(pheromoneMatrix, allPaths, allPathLengths, pheromoneDecay, pheromoneConstant) {
-    // Evaporation (reduce pheromone everywhere)
+    // Evaporation (reduce pheromone on ALL edges)
     for (let i = 0; i < pheromoneMatrix.length; i++) {
       // Reduce pheromone by a decay factor (and add some randomness)
       for (let j = 0; j < pheromoneMatrix[i].length; j++) {
@@ -46,9 +55,12 @@ class ACO {
     // Deposit (add pheromone proportional to path quality)
     for (let i = 0; i < allPaths.length; i++) {
       const path = allPaths[i];
+      // Smaller path length → larger deposit (better solution)
+      // Random term slightly perturbs deposit so paths are not reinforced identically.
       const pheromoneDeposit = pheromoneConstant / (allPathLengths[i] * (Math.random() * 0.5 + 1));
+      // Add pheromone along each edge of the path
       for (let j = 0; j < path.length - 1; j++) {
-        pheromoneMatrix[path[j]][path[j + 1]] += pheromoneDeposit; // deposit pheromone on the path
+        pheromoneMatrix[path[j]][path[j + 1]] += pheromoneDeposit;
         pheromoneMatrix[path[j + 1]][path[j]] += pheromoneDeposit; // ensure symmetry
       }
     }
@@ -57,13 +69,15 @@ class ACO {
 
   // -------------------------
   // Ant class (inner class of ACO)
-  // Each ant builds a path and evaluates it
+  // Each ant builds a full tour based on:
+  //   - pheromoneMatrix (learned "experience")
+  //   - distance and duration heuristics
   // -------------------------
   Ant = class {
     constructor(parent, cityNum) {
-      this.parent = parent; // reference back to ACO instance
+      this.parent = parent;    // reference back to ACO instance
       this.cityNum = cityNum;  // number of cities in this ACO instance
-      this.clean(); 
+      this.clean();            // initialize internal state
     }
 
     // Reset ant state
@@ -74,46 +88,51 @@ class ACO {
       this.totalDistance = 0;                               // total distance and duration
       this.totalDuration = 0;                               // total distance and duration
       this.moveCount = 1;                                   // start with one move (at city 0)                 
-      this.cur = 0;                                         // current city
+      this.cur = 0;                                         // current city index
     }
 
-    // Choose next city (probabilistic decision)
+    // Choose the next city using probabilistic (roulette wheel) selection
+    // based on pheromones and heuristic desirability.
     next() {
-      const distMatrix = this.parent.distanceMatrix;         // distance matrix
-      const durationMatrix = this.parent.durationMatrix;     // duration matrix
-      const pheromoneMatrix = this.parent.pheromoneMatrix;   // pheromone levels
+      const distMatrix = this.parent.distanceMatrix;
+      const durationMatrix = this.parent.durationMatrix;
+      const pheromoneMatrix = this.parent.pheromoneMatrix;
 
-      const ALPHA = this.parent.ALPHA;                       // pheromone influence
-      const GAMMA = this.parent.GAMMA;                       // distance attractiveness
-      const DELTA = this.parent.DELTA;                       // duration attractiveness
-      const RHO = this.parent.RHO;                           // pheromone evaporation rate
+      const ALPHA = this.parent.ALPHA;
+      const BETA = this.parent.BETA;       
+      const CHARLIE = this.parent.CHARLIE;               
+      const RHO = this.parent.RHO;
 
       let probabilities = new Array(this.cityNum).fill(0);   // probabilities for each city
-      let totalProb = 0;                                     // total probability for normalization
+      let totalProb = 0;                                     // sum of attractiveness (for normalization)
 
       // Calculate attractiveness for each unvisited city
       for (let city = 0; city < this.cityNum; city++) {
         // Only consider unvisited cities
         if (!this.visited[city]) {
-          const pheromone = Math.pow(pheromoneMatrix[this.cur][city], ALPHA);               // pheromone level raised to alpha
-          const attractivenessDistance = Math.pow(1 / distMatrix[this.cur][city], GAMMA);   // distance attractiveness raised to gamma
-          const attractivenessTime = Math.pow(1 / durationMatrix[this.cur][city], DELTA);   // duration attractiveness raised to delta
-          const attractiveness = pheromone * attractivenessDistance * attractivenessTime;   // combined attractiveness
+          const pheromone = Math.pow(pheromoneMatrix[this.cur][city], ALPHA);                 // pheromone level raised to alpha
+          const attractivenessDistance = Math.pow(1 / distMatrix[this.cur][city], BETA);      // distance attractiveness raised to beta
+          const attractivenessTime = Math.pow(1 / durationMatrix[this.cur][city], CHARLIE);   // duration attractiveness raised to charlie
+          const attractiveness = pheromone * attractivenessDistance * attractivenessTime;     // combined attractiveness
 
-          probabilities[city] = attractiveness;    // store attractiveness for this city
-          totalProb += attractiveness;             // accumulate total probability
+          probabilities[city] = attractiveness; 
+          totalProb += attractiveness;
         }
       }
 
-      // Roulette wheel selection: pick city based on probability distribution
+      // ---- Roulette wheel selection ----
+      // Draw a random number in [0,1) and subtract normalized probabilities until it goes below 0.
       let tempProb = Math.random();
       for (let city = 0; city < this.cityNum; city++) {
         // Only consider unvisited cities
         if (!this.visited[city]) {
-          probabilities[city] /= totalProb;  // normalize
-          tempProb -= probabilities[city];   // subtract normalized probability
+          probabilities[city] /= totalProb;
+          tempProb -= probabilities[city];
           if (tempProb < 0) {
-            pheromoneMatrix[this.cur][city] *= (1 - RHO); // local evaporation
+            // Local evaporation on the chosen edge (intensifies exploration)
+            pheromoneMatrix[this.cur][city] *= (1 - RHO);
+
+            // Move ant to the chosen city
             this.path.push(city);
             this.visited[city] = true;
             this.totalDistance += distMatrix[this.cur][city];
@@ -126,7 +145,8 @@ class ACO {
       }
     }
 
-    // Perform a full tour of all cities and return to start
+    // Build a full tour that visits all cities exactly once
+    // then returns to the starting city (0)
     search() {
       const distMatrix = this.parent.distanceMatrix;
       const durationMatrix = this.parent.durationMatrix;
@@ -134,30 +154,38 @@ class ACO {
       while (this.moveCount < this.cityNum) {
         this.next();
       }
-      // close the loop: return to starting city
+      // Close the tour: last city → first city (0)
       this.totalDistance += distMatrix[this.path[this.cityNum - 1]][this.path[0]];
       this.totalDuration += durationMatrix[this.path[this.cityNum - 1]][this.path[0]];
     }
   };
 
   // -------------------------
-  // Run the main ACO loop
+  // Run the ACO metaheuristic:
+  //   - Create ants
+  //   - Repeat for ITER iterations:
+  //       * Each ant builds a tour
+  //       * Track global best
+  //       * Update pheromones globally
   // -------------------------
   run() {
     const startTime = performance.now();
 
-    // create all ants for this run
-    const ants = Array.from({ length: this.ANT_NUM }, () => new this.Ant(this, this.CITY_NUM));
+    // Create all ants for this run
+    const ants = Array.from(
+      { length: this.ANT_NUM }, 
+      () => new this.Ant(this, this.CITY_NUM)
+    );
 
-    // === While stopping criterion not met do ===
+    // ---- While stopping criterion not met do ----
     let iter = 0;
     while (iter < this.ITER) {
 
-      // === For each ant do ===
+      // ---- For each ant do ----
       for (const ant of ants) {
-        ant.search(); // build a solution
+        ant.search();
 
-        // check if this ant found a new best path
+        // ---- Update global best if this ant is better ----
         if (
           ant.totalDistance < this.bestPathLength ||
           (ant.totalDistance === this.bestPathLength && ant.totalDuration < this.bestPathDuration)
@@ -168,14 +196,14 @@ class ACO {
         }
       }
 
-      // store best results so far (useful for convergence plots)
+      // ---- Store current best (for plotting convergence) ----
       this.bestSolutions.push({
         iteration: iter,
         bestDistance: this.bestPathLength,
         bestDuration: this.bestPathDuration,
       });
 
-      // update pheromones based on ants’ paths
+      // ---- Global pheromone update based on all ants ----
       const iterationPaths = ants.map(a => a.path);
       const iterationPathLengths = ants.map(a => a.totalDistance);
       this.pheromoneMatrix = this.updatePheromoneMatrix(
@@ -190,15 +218,14 @@ class ACO {
     }
 
     const endTime = performance.now();
-    const computationTime = endTime - startTime;
 
-    // return final results
-    return {
-      bestPath: this.bestPath,
-      bestPathLength: this.bestPathLength,
-      bestPathDuration: this.bestPathDuration,
-      computationTime,
-      bestSolutions: this.bestSolutions,
+    // Final result of the algorithm
+    return {   
+      bestPath: this.bestPath,                      // best tour (sequence of city indices)
+      bestPathLength: this.bestPathLength,          // total distance of best tour
+      bestPathDuration: this.bestPathDuration,      // total duration of best tour
+      computationTime: endTime - startTime,         // elapsed time
+      bestSolutions: this.bestSolutions,            // history of best results per iteration
     };
   }
 }
