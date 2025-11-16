@@ -7,7 +7,7 @@ class BeamACO {
     this.CITY_NUM = distanceMatrix.length;
     this.ANT_NUM = Math.max(10, Math.floor(this.CITY_NUM / 2));
     this.ITER = 200;
-    this.EXPLOITATION_THRESHOLD = 70;
+    this.EXPLOITATION_THRESHOLD = 100;
 
     // Beam width schedule: start wider, end narrower
     this.BEAM_INITIAL_FACTOR = 0.35;
