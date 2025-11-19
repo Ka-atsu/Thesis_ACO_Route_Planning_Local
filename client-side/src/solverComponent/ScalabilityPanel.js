@@ -14,7 +14,9 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
       const bTime = Number.isFinite(ev?.beam?.time) ? ev.beam.time : null;
       const aDist = Number.isFinite(ev?.aco?.distance) ? ev.aco.distance : null;
       const bDist = Number.isFinite(ev?.beam?.distance) ? ev.beam.distance : null;
-      return { ...ev, stops, aTime, bTime, aDist, bDist };
+      const aCompute = Number.isFinite(ev?.aco?.computationTime) ? ev.aco.computationTime : null;
+      const bCompute = Number.isFinite(ev?.beam?.computationTime) ? ev.beam.computationTime : null;
+      return { ...ev, stops, aTime, bTime, aDist, bDist, aCompute, bCompute };
     });
 
   const have3 = core.filter(c => c.stops).length >= 3;
@@ -30,10 +32,11 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
     ? timePairs.reduce((acc, c) => acc + ((c.bTime - c.aTime) / c.aTime) * 100, 0) / timePairs.length
     : null;
 
-  const withStopsTime = core.filter(c => c.stops && c.aTime != null && c.bTime != null);
-  const x = withStopsTime.map(c => c.stops);
-  const yA = withStopsTime.map(c => c.aTime);
-  const yB = withStopsTime.map(c => c.bTime);
+  const withStopsCompute = core.filter(c => c.stops && c.aCompute != null && c.bCompute != null);
+  const x = withStopsCompute.map(c => c.stops);
+  const yA = withStopsCompute.map(c => c.aCompute);
+  const yB = withStopsCompute.map(c => c.bCompute);
+
   const { slope: slopeA } = linearRegression(x, yA);
   const { slope: slopeB } = linearRegression(x, yB);
 
@@ -41,38 +44,56 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
   let rationale = "";
 
   if (distPairs.length) {
+    // 1. Distance comparison
     if (avgDistDeltaPct < -0.5) {
       verdict = "Beam ACO";
       rationale = `Beam finds ~${Math.abs(avgDistDeltaPct).toFixed(1)}% shorter routes on average.`;
     } else if (avgDistDeltaPct > 0.5) {
       verdict = "ACO";
       rationale = `ACO finds ~${Math.abs(avgDistDeltaPct).toFixed(1)}% shorter routes on average.`;
-    } else {
+    } 
+    
+    // 2. Distances tie → check travel-time scaling
+    else {
       if (slopeA != null && slopeB != null) {
         if (slopeB < slopeA * 0.98) {
           verdict = "Beam ACO";
-          rationale = "Distances tie, but Beam’s runtime grows more slowly with problem size.";
+          rationale = "Distances tie, but Beam’s route time grows more slowly as stops increase.";
         } else if (slopeA < slopeB * 0.98) {
           verdict = "ACO";
-          rationale = "Distances tie, but ACO’s runtime grows more slowly with problem size.";
-        } else if (avgTimeDeltaPct != null) {
-          verdict = avgTimeDeltaPct < 0 ? "Beam ACO" : "ACO";
-          rationale = `Distances tie; ${verdict} is ~${Math.abs(avgTimeDeltaPct).toFixed(1)}% faster on average.`;
+          rationale = "Distances tie, but ACO’s route time grows more slowly as stops increase.";
+        } 
+        
+        // 3. Slopes tie → check average route time
+        else if (avgTimeDeltaPct != null) {
+          const winner = avgTimeDeltaPct < 0 ? "Beam ACO" : "ACO";
+          verdict = winner;
+          rationale = `Distances tie; ${winner} produces routes with ~${Math.abs(avgTimeDeltaPct).toFixed(1)}% lower travel time on average.`;
         } else {
           verdict = "Tie";
-          rationale = "Distances tie and runtime trend is similar.";
+          rationale = "Distances tie and travel-time trends are similar.";
         }
-      } else if (avgTimeDeltaPct != null) {
-        verdict = avgTimeDeltaPct < 0 ? "Beam ACO" : "ACO";
-        rationale = `Distances tie; ${verdict} is ~${Math.abs(avgTimeDeltaPct).toFixed(1)}% faster on average.`;
-      } else {
+      } 
+      
+      // Slope unavailable → fall back to average route time
+      else if (avgTimeDeltaPct != null) {
+        const winner = avgTimeDeltaPct < 0 ? "Beam ACO" : "ACO";
+        verdict = winner;
+        rationale = `Distances tie; ${winner} produces routes with ~${Math.abs(avgTimeDeltaPct).toFixed(1)}% lower travel time on average.`;
+      } 
+      
+      // Not enough data
+      else {
         verdict = "Tie";
         rationale = "Not enough comparable metrics to break the tie.";
       }
     }
-  } else if (slopeA != null && slopeB != null) {
+  } 
+
+  // 4. No distance data → compare travel-time scaling only
+  else if (slopeA != null && slopeB != null) {
     verdict = slopeB < slopeA ? "Beam ACO" : "ACO";
-    rationale = `${verdict} shows a smaller runtime slope vs. stops (better scaling).`;
+    rationale = `${verdict} shows a smaller growth rate in route travel time as stops increase (better scaling).`;
   }
 
   const darkTheme = {
@@ -145,7 +166,7 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
                   {avgTimeDeltaPct == null ? "N/A" : `${avgTimeDeltaPct.toFixed(2)}%`}
                 </div>
                 <div>
-                  Runtime slope vs stops — ACO:{" "}
+                  Computation-time slope vs stops — ACO:{" "}
                   {slopeA == null ? "N/A" : slopeA.toFixed(4)} | Beam:{" "}
                   {slopeB == null ? "N/A" : slopeB.toFixed(4)}
                 </div>
@@ -160,19 +181,44 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
                       ? `${Math.abs(avgDistDeltaPct.toFixed(1))}% shorter`
                       : "similar"}.
                   </li>
+
                   <li>
-                    Beam ACO is also <b>faster</b>: about{" "}
+                    Beam ACO also yields <b>faster route travel times</b>: about{" "}
                     {avgTimeDeltaPct && avgTimeDeltaPct < 0
                       ? `${Math.abs(avgTimeDeltaPct.toFixed(1))}% quicker`
                       : "similar speed"}.
                   </li>
+
                   <li>
-                    Looking at how runtime grows with problem size (slope), Beam ACO grows more slowly
-                    ({slopeB?.toFixed(1)} vs {slopeA?.toFixed(1)} minutes per stop).
+                    Looking at how <b>computation time</b> grows with problem size (slope):
+
+                    {slopeA != null && slopeB != null ? (
+                      <>
+                        {slopeA < slopeB ? (
+                          <>
+                            ACO scales better ({slopeA.toFixed(1)} ms/stop) than Beam ACO
+                            ({slopeB.toFixed(1)} ms/stop). ACO has a <b>lower</b> computation-time
+                            slope, meaning it requires less additional processing as the number
+                            of stops increases.
+                          </>
+                        ) : (
+                          <>
+                            Beam ACO scales better ({slopeB.toFixed(1)} ms/stop) than ACO
+                            ({slopeA.toFixed(1)} ms/stop). Beam ACO has a <b>lower</b>
+                            computation-time slope, meaning it requires less additional
+                            processing as the number of stops increases.
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      " Insufficient computation-time data to compare scalability."
+                    )}
                   </li>
                 </ul>
-                Because Beam wins on <i>quality</i>, <i>speed</i>, and <i>scaling trend</i>, the overall verdict
-                is <b>Beam ACO</b>.
+
+                Although ACO is more computationally efficient, Beam ACO produces
+                <i> better route quality</i> and <i>faster travel times</i>.  
+                Therefore, the overall verdict is <b>Beam ACO</b>.
               </div>
             </>
           )}
