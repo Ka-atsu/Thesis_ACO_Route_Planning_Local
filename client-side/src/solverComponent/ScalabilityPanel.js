@@ -216,9 +216,26 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
                   </li>
                 </ul>
 
-                Although ACO is more computationally efficient, Beam ACO produces
-                <i> better route quality</i> and <i>faster travel times</i>.  
-                Therefore, the overall verdict is <b>Beam ACO</b>.
+                 {slopeA != null && slopeB != null ? (
+                  slopeA < slopeB ? (
+                    <>
+                      Although <b>ACO</b> is more computationally efficient, Beam ACO produces
+                      <i> better route quality</i> and <i>faster travel times</i>.<br />
+                      Therefore, the overall verdict is <b>Beam ACO</b>.
+                    </>
+                  ) : (
+                    <>
+                      Although <b>Beam ACO</b> is more computationally efficient, it also delivers
+                      <i> better route quality</i> and <i>faster travel times</i>.<br />
+                      Therefore, the overall verdict is <b>Beam ACO</b>.
+                    </>
+                  )
+                ) : (
+                  <>
+                    Beam ACO produces <i>better route quality</i> and <i>faster travel times</i>.<br />
+                    Therefore, the overall verdict is <b>Beam ACO</b>.
+                  </>
+                )}
               </div>
             </>
           )}
