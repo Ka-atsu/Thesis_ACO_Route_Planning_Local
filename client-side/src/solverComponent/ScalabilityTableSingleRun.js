@@ -2,8 +2,7 @@ import Table from "react-bootstrap/Table";
 import Container from "react-bootstrap/Container";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
-// import { formatTime, formatDistance, formatComputeTime } from "../utils/datasetUtils";
-import { formatTime, formatDistance } from "../utils/datasetUtils";
+import { formatTime, formatDistance, formatComputeTime } from "../utils/datasetUtils";
 
 export default function ScalabilityTableSingleRun({ evaluations = [] }) {
   if (!evaluations.length) return null;
@@ -78,8 +77,8 @@ export default function ScalabilityTableSingleRun({ evaluations = [] }) {
             <th>Beam ACO Route Time</th>
             <th>ACO Distance</th>
             <th>Beam ACO Distance</th>
-            {/* <th>ACO Computation Time</th>
-            <th>Beam ACO Computation Time</th> */}
+            <th>ACO Computation Time</th>
+            <th>Beam ACO Computation Time</th>
           </tr>
         </thead>
         <tbody>
@@ -91,8 +90,8 @@ export default function ScalabilityTableSingleRun({ evaluations = [] }) {
             const beamTime = Number.isFinite(beam.time) ? formatTime(beam.time) : "N/A";
             const acoDist = Number.isFinite(aco.distance) ? formatDistance(aco.distance) : "N/A";
             const beamDist = Number.isFinite(beam.distance) ? formatDistance(beam.distance) : "N/A";
-            // const acoCompTime = Number.isFinite(aco.distance) ? formatComputeTime(aco.computationTime) : "N/A";
-            // const beamCompTime = Number.isFinite(beam.distance) ? formatComputeTime(beam.computationTime) : "N/A";
+            const acoCompTime = Number.isFinite(aco.distance) ? formatComputeTime(aco.computationTime) : "N/A";
+            const beamCompTime = Number.isFinite(beam.distance) ? formatComputeTime(beam.computationTime) : "N/A";
 
             return (
               <tr
@@ -105,8 +104,8 @@ export default function ScalabilityTableSingleRun({ evaluations = [] }) {
                 <td>{beamTime}</td>
                 <td>{acoDist}</td>
                 <td>{beamDist}</td>
-                {/* <td>{acoCompTime}</td>
-                <td>{beamCompTime}</td> */}
+                <td>{acoCompTime}</td>
+                <td>{beamCompTime}</td>
               </tr>
             );
           })}

@@ -210,7 +210,7 @@ export const predefinedRoutes = [
     ],
   },
   {
-    name: "Philippines 250 Stops",
+    name: "Luzon 250 Stops",
     markers: [
       { lat: 13.948625040412793, lng: 120.73143339953646 },
       { lat: 13.938775462042926, lng: 120.78496741369042 },

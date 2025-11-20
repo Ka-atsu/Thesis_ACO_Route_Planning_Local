@@ -141,7 +141,7 @@ export default function ScalabilityPanel({ allEvaluations = [] }) {
         <Card.Body>
           {!have3 ? (
             <div style={darkTheme.textMuted}>
-              Add Cabuyao (50), Laguna (150), and Philippines (250) to enable a full scalability verdict.
+              Add Cabuyao (50), Laguna (150), and Luzon (250) to enable a full scalability verdict.
             </div>
           ) : (
             <>

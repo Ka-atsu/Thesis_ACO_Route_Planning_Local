@@ -46,9 +46,9 @@ class ACO {
   updatePheromoneMatrix(pheromoneMatrix, allPaths, allPathLengths, pheromoneDecay, pheromoneConstant) {
     // Evaporation (reduce pheromone on ALL edges)
     for (let i = 0; i < pheromoneMatrix.length; i++) {
-      // Reduce pheromone by a decay factor (and add some randomness)
+      // Reduce pheromone by a decay factor
       for (let j = 0; j < pheromoneMatrix[i].length; j++) {
-        pheromoneMatrix[i][j] *= (pheromoneDecay + Math.random() * 0.05);
+        pheromoneMatrix[i][j] *= (1 - pheromoneDecay);
       }
     }
 

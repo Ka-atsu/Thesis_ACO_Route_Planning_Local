@@ -56,7 +56,7 @@ function HomePage() {
                 active={activeSection === 'feature'}
                 style={{ color: 'white', textDecoration: 'none' }}
               >
-                Feature
+                Features
               </Button>
               <Button
                 variant="link"
