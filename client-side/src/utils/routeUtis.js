@@ -106,7 +106,7 @@ export const getContinuousRoute = async (closedPath, markers, transportMode, avo
   let directionsUrl = `http://localhost:5000/route/v1/${transportMode}/${waypoints}?geometries=geojson&overview=full&steps=true`;
 
   if (transportMode === 'driving' && avoidTolls) {
-    directionsUrl += 'exclude=toll';
+    directionsUrl += '&exclude=toll';
   }
 
   try {

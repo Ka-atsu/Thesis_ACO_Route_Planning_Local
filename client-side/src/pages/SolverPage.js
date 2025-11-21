@@ -53,7 +53,7 @@ function SolverPage() {
   }, [evaluationData]);
 
   // Re-solve route when transport mode changes and TSP was solved
-   useEffect(() => {
+  useEffect(() => {
     if (solveLocked) solveTSP();
     // eslint-disable-next-line 
   }, [transportMode, solveLocked]);

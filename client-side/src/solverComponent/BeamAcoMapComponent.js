@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerPosition, highlightedIndex, sequence }) => {
+const BeamMapComponent = ({ addMarker, markers, markerMode, paths, updateMarkerPosition, highlightedIndex, sequence, showNumbers, showMarkers  }) => {
   const mapContainerRef = useRef(null);
   const [map, setMap] = useState(null);
   const markerObjectsRef = useRef([]);
@@ -53,6 +53,8 @@ useEffect(() => {
   });
   markerObjectsRef.current = [];
 
+  if (!showMarkers) return;
+
   // Create new marker instances
   const newMarkers = markers.map(({ lat, lng }, idx) => {
     const pos = sequence.findIndex(id => id === idx + 1);
@@ -61,19 +63,19 @@ useEffect(() => {
     const el = document.createElement('div');
     el.className = 'marker-label';
     Object.assign(el.style, {
-      background: highlightedIndex === idx ? '#f00' : '#500073',
+      background: '#141a82ff',
       color: 'white',
       fontWeight: 'bold',
-      fontSize: '14px',
+      fontSize: '10px',
       borderRadius: '50%',
-      width: '20px',
-      height: '20px',
+      width: '0.8rem',
+      height: '0.8rem',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
       cursor: 'pointer'
     });
-    el.textContent = label;
+    el.textContent = showNumbers ? label : "";
 
     const marker = new maplibregl.Marker({
       element: el,
@@ -91,45 +93,81 @@ useEffect(() => {
   });
 
   markerObjectsRef.current = newMarkers;
-}, [map, markers, highlightedIndex, updateMarkerPosition, sequence]);
+}, [map, markers, highlightedIndex, updateMarkerPosition, sequence, showNumbers, showMarkers]);
 
-  useEffect(() => {
-    if (map && paths) {
-      const source = map.getSource('path');
+ useEffect(() => {
+  if (!map || !paths) return;
 
-      if (paths.length === 0) {
-        if (source) {
-          source.setData({
-            type: 'FeatureCollection',
-            features: [],
-          });
-        }
-      } else {
-        if (source) {
-          source.setData(paths);
-        } else {
-          map.addSource('path', {
-            type: 'geojson',
-            data: paths,
-          });
-          map.addLayer({
-            id: 'path',
-            type: 'line',
-            source: 'path',
-            layout: {
-              'line-cap': 'round',
-              'line-join': 'round',
-            },
-            paint: {
-              'line-color': '#0000FF',
-              'line-width': 4,
-              'line-opacity': 0.9
-            },
-          });
+  const source = map.getSource('path');
+
+  if (paths.features && paths.features.length > 0) {
+    const STEP = 10; // every 10th point
+    const sampled = [];
+
+    paths.features.forEach(f => {
+      if (
+        f.geometry &&
+        f.geometry.type === 'LineString' &&
+        Array.isArray(f.geometry.coordinates)
+      ) {
+        // sample directly from the geometry, NO spread
+        for (let i = 0; i < f.geometry.coordinates.length; i += STEP) {
+          sampled.push(f.geometry.coordinates[i]);
         }
       }
+    });
+
+    if (sampled.length > 0) {
+      const bounds = new maplibregl.LngLatBounds(sampled[0], sampled[0]);
+      for (let i = 1; i < sampled.length; i++) {
+        bounds.extend(sampled[i]);
+      }
+
+      map.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 14,
+        duration: 800,
+      });
     }
-  }, [map, paths]);
+  }
+  
+  const isEmpty =
+    (Array.isArray(paths) && paths.length === 0) ||
+    (paths.features && paths.features.length === 0);
+
+  if (isEmpty) {
+    if (source) {
+      source.setData({
+        type: 'FeatureCollection',
+        features: [],
+      });
+    }
+  } else {
+    if (source) {
+      source.setData(paths);
+    } else {
+      map.addSource('path', {
+        type: 'geojson',
+        data: paths,
+      });
+      map.addLayer({
+        id: 'path',
+        type: 'line',
+        source: 'path',
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': '#ff0000ff',
+          'line-width': 4,
+          'line-opacity': 0.9,
+        },
+      });
+    }
+  }
+}, [map, paths]);
+
 
   return <div ref={mapContainerRef} style={{ height: '100%' }}></div>;
 };

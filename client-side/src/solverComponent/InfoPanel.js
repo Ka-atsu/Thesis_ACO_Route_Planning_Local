@@ -8,7 +8,7 @@ import { GiCycling } from "react-icons/gi";
 import { IoCarSport } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
 
-function InfoPanel({ markers, markerMode, toggleMarkerMode, removeMarker, resetMarkers, solveTSP , solveLocked, transportMode, changeTransportMode }) {
+function InfoPanel({ markers, markerMode, toggleMarkerMode, removeMarker, resetMarkers, solveTSP , solveLocked, transportMode, changeTransportMode , showNumbers, toggleShowNumbers , showMarkers, toggleShowMarkers}) {
 
   const navigate = useNavigate();
 
@@ -96,6 +96,28 @@ function InfoPanel({ markers, markerMode, toggleMarkerMode, removeMarker, resetM
           >
             <FaUndo />
           </Button>
+        </Col>
+        <Col>
+          <Form.Check
+          type="switch"
+          id="toggle-show-numbers"
+          label={showNumbers ? "Hide Numbers" : "Show Numbers"}
+          checked={showNumbers}
+          onChange={toggleShowNumbers}
+          className="m-1"
+          style={{color:'white'}}
+        />
+        </Col>
+        <Col>
+          <Form.Check
+          type="switch"
+          id="toggle-show-numbers"
+          label={showMarkers ? "Hide Markers & Numbers" : "Show Markers & Numbers"}
+          checked={showMarkers}
+          onChange={toggleShowMarkers}
+          className="m-1"
+          style={{color:'white'}}
+        />
         </Col>
       </Row>
     </Container>

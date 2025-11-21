@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import AcoMapComponent from '../../solverComponent/AcoMapComponent';
 import BeamAcoMapComponent from '../../solverComponent/BeamAcoMapComponent';
 import InfoPanel from '../../solverComponent/InfoPanel';
@@ -40,6 +40,8 @@ function DesktopLayout({
   const containerRef = useRef(null);
   const mapsRef = useRef(null);
   const evalRef = useRef(null);
+  const [showNumbers, setShowNumbers] = useState(true);
+  const [showMarkers, setShowMarkers] = useState(true);
 
   const scrollTo = (ref) => {
     if (!containerRef.current || !ref.current) return;
@@ -79,6 +81,25 @@ function DesktopLayout({
             resetMarkers={handleResetMarkers}
             transportMode={transportMode}
             changeTransportMode={setTransportMode}
+            showNumbers={showNumbers}
+            toggleShowNumbers={() => {
+              if (!showMarkers) return;
+              setShowNumbers(prev => !prev);
+            }}
+            showMarkers={showMarkers}
+            toggleShowMarkers={() => {
+              setShowMarkers(prev => {
+                const newVal = !prev;
+
+                if (!newVal) {
+                  setShowNumbers(false);
+                } else {
+                  setShowNumbers(true);
+                }
+
+                return newVal;
+              });
+            }}
           />
 
           <SavedRoutesPanel
@@ -158,6 +179,8 @@ function DesktopLayout({
                     });
                     setSolveLocked(false);
                   }}
+                  showNumbers={showNumbers}
+                  showMarkers={showMarkers}
                 />
               </div>
             </div>
@@ -209,6 +232,8 @@ function DesktopLayout({
                     });
                     setSolveLocked(false);
                   }}
+                  showNumbers={showNumbers}
+                  showMarkers={showMarkers}
                 />
               </div>
             </div>
