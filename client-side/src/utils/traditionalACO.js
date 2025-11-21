@@ -24,6 +24,7 @@ class ACO {
     this.bestPathLength = Infinity;                                       // best distance found so far
     this.bestPathDuration = Infinity;                                     // best duration found so far
     this.bestSolutions = [];                                              // track progress across iterations
+    this.bestScore = Infinity;
   }
 
   // -------------------------
@@ -184,16 +185,16 @@ class ACO {
       // ---- For each ant do ----
       for (const ant of ants) {
         ant.search();
+          const dist = ant.totalDistance;
+          const dur = ant.totalDuration;
+          const score = dist + dur;  
 
-        // ---- Update global best if this ant is better ----
-        if (
-          ant.totalDistance < this.bestPathLength ||
-          (ant.totalDistance === this.bestPathLength && ant.totalDuration < this.bestPathDuration)
-        ) {
-          this.bestPath = ant.path.slice();
-          this.bestPathLength = ant.totalDistance;
-          this.bestPathDuration = ant.totalDuration;
-        }
+          if (score < this.bestScore) {
+            this.bestScore = score;
+            this.bestPath = ant.path.slice();
+            this.bestPathLength = dist;
+            this.bestPathDuration = dur;
+          }
       }
 
       // ---- Store current best (for plotting convergence) ----

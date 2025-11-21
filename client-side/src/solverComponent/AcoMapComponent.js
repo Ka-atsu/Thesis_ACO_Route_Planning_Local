@@ -160,7 +160,7 @@ useEffect(() => {
           'line-join': 'round',
         },
         paint: {
-          'line-color': '#0000FF', // or '#ff0000ff' in Beam map
+          'line-color': '#0000FF',
           'line-width': 4,
           'line-opacity': 0.9,
         },

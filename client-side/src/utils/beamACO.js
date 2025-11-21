@@ -20,14 +20,14 @@ class BeamACO {
     this.Q = 1;
 
     // Exploration to exploitation switching
-    this.EXPLOITATION_THRESHOLD = Math.floor(0.3 * this.ITER);
+    this.EXPLOITATION_THRESHOLD = Math.floor(0.4 * this.ITER);
     this.BOOST = 2.0;
 
     // Elitist reinforcement
     this.ELITE_WEIGHT = 1.5;
 
     // Pheromone limits
-    this.TAU_MIN = 1e-6;
+    this.TAU_MIN = 1e-4;
     this.TAU_MAX = 10;
     this.EPS = 1e-12;
 
@@ -92,7 +92,9 @@ class BeamACO {
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         if (i === j) continue;
-        sum += this.distanceMatrix[i][j];
+        const d = this.distanceMatrix[i][j];
+        const t = this.durationMatrix[i][j];
+        sum += d + t;
         cnt++;
       }
     }
