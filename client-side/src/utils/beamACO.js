@@ -17,11 +17,13 @@ class BeamACO {
     this.BETA = 3;
     this.CHARLIE = 2;
     this.RHO = 0.5;
+    this.RHO_LOCAL = 0.1;
     this.Q = 1;
 
     // Exploration to exploitation switching
     this.EXPLOITATION_THRESHOLD = Math.floor(0.4 * this.ITER);
     this.BOOST = 2.0;
+    this.Q0 = 0.2;
 
     // Elitist reinforcement
     this.ELITE_WEIGHT = 1.5;
@@ -221,19 +223,29 @@ class BeamACO {
 
       if (!beam.length) return;
 
-      // Roulette selection
-      const total = beam.reduce((s, x) => s + x.att, 0);
-      let r = Math.random() * total;
+      const q = Math.random();
+      let chosen;
 
-      let chosen = beam[beam.length - 1].city; 
+      if (q < this.parent.Q0) {
+          // Exploitation: choose best attractiveness
+          chosen = beam[0].city;   // beam is sorted descending by att
+      } else {
+          // Exploration: roulette-wheel selection
+          const total = beam.reduce((s, x) => s + x.att, 0);
+          let r = Math.random() * total;
 
-      for (const item of beam) {
-        r -= item.att;
-        if (r <= 0) {
-          chosen = item.city;
-          break;
-        }
+          for (const item of beam) {
+              r -= item.att;
+              if (r <= 0) {
+                  chosen = item.city;
+                  break;
+              }
+          }
       }
+
+      // Local evaporation
+      pheromoneMatrix[this.cur][chosen] *= (1 - this.parent.RHO_LOCAL);
+      pheromoneMatrix[chosen][this.cur] *= (1 - this.parent.RHO_LOCAL);
 
       // Move
       this.path.push(chosen);
