@@ -33,6 +33,9 @@ class BeamACO {
     this.TAU_MAX = 10;
     this.EPS = 1e-12;
 
+    // Tau initialization
+    this.TAU0_AUTO = true;
+
     // ---- Build heuristic matrix ----
     this.heurMatrix = Array.from({ length: this.CITY_NUM }, () =>
       new Array(this.CITY_NUM).fill(0)
@@ -88,21 +91,46 @@ class BeamACO {
     return neighbors;
   }
 
-  initializePheromoneMatrix(n) {
-    // Adaptive tau initial
-    let sum = 0, cnt = 0;
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i === j) continue;
-        const d = this.distanceMatrix[i][j];
-        const t = this.durationMatrix[i][j];
-        sum += d + t;
-        cnt++;
-      }
-    }
-    const avg = Math.max(sum / cnt, this.EPS);
-    const tau0 = 1 / (this.RHO * n * avg);
+  computeNearestNeighborTour() {
+    const n = this.CITY_NUM;
+    const visited = Array(n).fill(false);
+    let cur = 0;
+    let cost = 0;
 
+    visited[cur] = true;
+
+    for (let step = 1; step < n; step++) {
+      let best = -1;
+      let bestScore = Infinity;
+
+      for (let j = 0; j < n; j++) {
+        if (!visited[j]) {
+          const d = this.distanceMatrix[cur][j];
+          const t = this.durationMatrix[cur][j];
+          const score = d + t;
+          if (score < bestScore) {
+            bestScore = score;
+            best = j;
+          }
+        }
+      }
+
+      visited[best] = true;
+      cost += bestScore;
+      cur = best;
+    }
+
+    // close tour back to start
+    cost += this.distanceMatrix[cur][0] + this.durationMatrix[cur][0];
+
+    return cost;
+  }
+
+  initializePheromoneMatrix(n) {
+    // Compute nearest-neighbor tour cost
+    const Lnn = this.computeNearestNeighborTour();
+    const tau0 = 1 / (this.RHO * Lnn);
+    // Initialize matrix
     return Array.from({ length: n }, () =>
       Array.from({ length: n }, () => tau0)
     );
@@ -225,10 +253,10 @@ class BeamACO {
 
       const q = Math.random();
       let chosen;
-
+      
       if (q < this.parent.Q0) {
           // Exploitation: choose best attractiveness
-          chosen = beam[0].city;   // beam is sorted descending by att
+          chosen = beam[0].city;
       } else {
           // Exploration: roulette-wheel selection
           const total = beam.reduce((s, x) => s + x.att, 0);

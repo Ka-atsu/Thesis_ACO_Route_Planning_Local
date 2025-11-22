@@ -132,6 +132,7 @@ class ACO {
           if (tempProb < 0) {
             // Local evaporation on the chosen edge (intensifies exploration)
             pheromoneMatrix[this.cur][city] *= (1 - RHO);
+            pheromoneMatrix[city][this.cur] *= (1 - RHO);
 
             // Move ant to the chosen city
             this.path.push(city);
